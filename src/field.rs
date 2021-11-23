@@ -1,13 +1,13 @@
 use std::cmp::PartialEq;
 
 pub struct FieldElement {
-    num: u32,
-    prime: u32,
+    num: i32,
+    prime: i32,
 }
 
 impl FieldElement {
-    pub fn new(num: u32, prime: u32) -> Result<Self, String> {
-        if num >= prime {
+    pub fn new(num: i32, prime: i32) -> Result<Self, String> {
+        if num < 0 || num >= prime { // also means prime > 0
             let err = format!("Num {} not in field range 0 to {}", num, prime);
             return Err(err)
         }
@@ -36,8 +36,14 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn new_failed() {
+    fn new_failed_num_too_big() {
         FieldElement::new(11, 11).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn new_failed_num_is_nagetive() {
+        FieldElement::new(-1, 11).unwrap();
     }
 
     #[test]

@@ -1,37 +1,52 @@
 use std::cmp::PartialEq;
 use std::ops::{Add, Sub, Mul, Div};
+use std::fmt::{self, Display};
+use super::prime::Prime;
 
-#[derive(Debug)]
+pub struct FieldElementCreator(Prime);
+
+impl FieldElementCreator {
+    pub fn from_u32(&self, num: u32) -> FieldElement {
+        let prime = self.0;
+        let num = prime.create_element_from_u32(num);
+        FieldElement { num, prime }
+    }
+
+    pub fn from_i64(&self, num: i64) -> FieldElement {
+        let prime = self.0;
+        let num = prime.create_element_from_i64(num);
+        FieldElement { num, prime }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct FieldElement {
-    num: i32,
-    prime: i32,
+    num: u32,
+    prime: Prime,
 }
 
 impl FieldElement {
-    pub fn new(num: i32, prime: i32) -> Result<Self, String> {
-        if num < 0 || num >= prime { // also means prime > 0
-            let err = format!("Num {} not in field range 0 to {}", num, prime);
-            return Err(err)
-        }
-        Ok(Self { num, prime })
+    pub fn pow_u32(&self, exponent: u32) -> Self {
+        let exponent = self.prime.create_exponent_from_u32(exponent);
+        self.pow(exponent)
     }
 
-    pub fn pow(&self, exponent: i32) -> Self {
-        // a^(p-1)=1, so exponent in prime(13): 9, -3=-3+12=9, -15=-15+12*2=9
-        let mut exponent = exponent % (self.prime - 1);
-        while exponent < 0 {
-            exponent += self.prime - 1;
-        }
+    pub fn pow_i64(&self, exponent: i64) -> Self {
+        let exponent = self.prime.create_exponent_from_i64(exponent);
+        self.pow(exponent)
+    }
+
+    fn pow(&self, mut exponent: u32) -> Self {
+        let prime = self.prime.0;
 
         // pow(num, exponent, prime)
-        let mut exponent = exponent as u32;
         let mut current = self.num;
         let mut result = 1;
         while exponent > 0 {
             if exponent % 2 == 1 {
-                result = (result * current) % self.prime;
+                result = (result * current) % prime;
             }
-            current = (current * current) % self.prime;
+            current = (current * current) % prime;
             exponent = exponent >> 1;
         }
 
@@ -39,6 +54,12 @@ impl FieldElement {
             num: result,
             prime: self.prime,
         }
+    }
+}
+
+impl Display for FieldElement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.num)
     }
 }
 
@@ -60,7 +81,7 @@ impl Add for FieldElement {
             panic!("cannot add two numbers in different Fields");
         }
         Self {
-            num: (self.num + other.num) % self.prime,
+            num: (self.num + other.num) % self.prime.0,
             prime: self.prime
         }
     }
@@ -74,7 +95,7 @@ impl Sub for FieldElement {
             panic!("cannot sub two numbers in different Fields");
         }
         Self {
-            num: (self.num - other.num) % self.prime,
+            num: (self.num - other.num) % self.prime.0,
             prime: self.prime
         }
     }
@@ -88,7 +109,7 @@ impl Mul for FieldElement {
             panic!("cannot mul two numbers in different Fields");
         }
         Self {
-            num: (self.num * other.num) % self.prime,
+            num: (self.num * other.num) % self.prime.0,
             prime: self.prime
         }
     }
@@ -104,7 +125,7 @@ impl Div for FieldElement {
 
         // b^-1 = b^(-1+(prime-1)) = b^(prime-2)
         // a/b = a*b^-1 = a*b^(prime-2)
-        let divisor = other.pow(other.prime-2);
+        let divisor = other.pow(other.prime.0 - 2);
         println!("divisor: {:?}", divisor);
         self.mul(divisor)
     }
@@ -112,123 +133,155 @@ impl Div for FieldElement {
 
 #[cfg(test)]
 mod tests {
-    pub use super::FieldElement;
+    use super::FieldElementCreator;
+    use crate::prime::Prime;
+
+    const CREATOR11: FieldElementCreator = FieldElementCreator(Prime(11));
+    const CREATOR13: FieldElementCreator = FieldElementCreator(Prime(13));
+    const CREATOR19: FieldElementCreator = FieldElementCreator(Prime(19));
+
+    // creator
 
     #[test]
-    fn new_success() {
-        FieldElement::new(5, 11).unwrap();
+    fn create_field_element_with_u32_1() {
+        let element1 = CREATOR11.from_u32(10u32);
+        let element2 = CREATOR11.from_u32(21u32);
+        assert_eq!(element1, element2);
     }
 
     #[test]
-    #[should_panic]
-    fn new_failed_num_too_big() {
-        FieldElement::new(11, 11).unwrap();
+    fn create_field_element_with_u32_2() {
+        let element1 = CREATOR11.from_u32(0u32);
+        let element2 = CREATOR11.from_u32(11u32);
+        assert_eq!(element1, element2);
     }
 
     #[test]
-    #[should_panic]
-    fn new_failed_num_is_nagetive() {
-        FieldElement::new(-1, 11).unwrap();
+    fn create_field_element_with_i64_1() {
+        let element1 = CREATOR11.from_i64(10i64);
+        let element2 = CREATOR11.from_i64(21i64);
+        assert_eq!(element1, element2);
     }
+
+    #[test]
+    fn create_field_element_with_i64_2() {
+        let element1 = CREATOR11.from_i64(0i64);
+        let element2 = CREATOR11.from_i64(11i64);
+        assert_eq!(element1, element2);
+    }
+
+    #[test]
+    fn create_field_element_with_i64_3() {
+        let element1 = CREATOR11.from_i64(-10i64);
+        let element2 = CREATOR11.from_i64(-21i64);
+        assert_eq!(element1, element2);
+    }
+
+    #[test]
+    fn create_field_element_with_i64_4() {
+        let element1 = CREATOR11.from_i64(-10i64);
+        let element2 = CREATOR11.from_i64(1i64);
+        assert_eq!(element1, element2);
+    }
+
+    // element
 
     #[test]
     fn eq_success() {
-        let element1 = FieldElement::new(5, 11).unwrap();
-        let element2 = FieldElement::new(5, 11).unwrap();
+        let element1 = CREATOR11.from_u32(5);
+        let element2 = CREATOR11.from_u32(5);
         assert!(element1 == element2);
     }
 
     #[test]
     fn ne_success() {
-        let element1 = FieldElement::new(5, 11).unwrap();
-        let element2 = FieldElement::new(8, 11).unwrap();
+        let element1 = CREATOR11.from_u32(5);
+        let element2 = CREATOR11.from_u32(8);
         assert!(element1 != element2);
     }
 
     #[test]
     fn add_success() {
-        let element1 = FieldElement::new(7, 13).unwrap();
-        let element2 = FieldElement::new(12, 13).unwrap();
+        let element1 = CREATOR13.from_u32(7);
+        let element2 = CREATOR13.from_u32(12);
+        let element3 = CREATOR13.from_u32(6);
 
-        let element3 = FieldElement::new(6, 13).unwrap();
-
-        assert!(element1 + element2 == element3);
+        assert_eq!(element1 + element2, element3);
     }
 
     #[test]
     #[should_panic]
     fn add_failed() {
-        let element1 = FieldElement::new(7, 11).unwrap();
-        let element2 = FieldElement::new(12, 13).unwrap();
+        let element1 = CREATOR11.from_u32(7);
+        let element2 = CREATOR13.from_u32(12);
         let _ = element1 + element2;
     }
 
     #[test]
     fn sub_success() {
-        let element1 = FieldElement::new(7, 13).unwrap();
-        let element2 = FieldElement::new(12, 13).unwrap();
+        let element1 = CREATOR13.from_u32(7);
+        let element2 = CREATOR13.from_u32(12);
+        let element3 = CREATOR13.from_u32(5);
 
-        let element3 = FieldElement::new(5, 13).unwrap();
-
-        assert!(element2 - element1 == element3);
+        assert_eq!(element2 - element1, element3);
     }
 
     #[test]
     #[should_panic]
     fn sub_failed() {
-        let element1 = FieldElement::new(7, 11).unwrap();
-        let element2 = FieldElement::new(12, 13).unwrap();
+        let element1 = CREATOR11.from_u32(7);
+        let element2 = CREATOR13.from_u32(12);
         let _ = element2 - element1;
     }
 
     #[test]
     fn mul_success() {
-        let element1 = FieldElement::new(3, 13).unwrap();
-        let element2 = FieldElement::new(12, 13).unwrap();
+        let element1 = CREATOR13.from_u32(3);
+        let element2 = CREATOR13.from_u32(12);
 
-        let element3 = FieldElement::new(10, 13).unwrap();
+        let element3 = CREATOR13.from_u32(10);
 
-        assert!(element2 * element1 == element3);
+        assert_eq!(element2 * element1, element3);
     }
 
     #[test]
     #[should_panic]
     fn mul_failed() {
-        let element1 = FieldElement::new(3, 11).unwrap();
-        let element2 = FieldElement::new(12, 13).unwrap();
+        let element1 = CREATOR11.from_u32(3);
+        let element2 = CREATOR13.from_u32(12);
         let _ = element1 * element2;
     }
 
     #[test]
     fn pow_success_1() {
-        let element1 = FieldElement::new(7, 13).unwrap();
-        let element2 = FieldElement::new(8, 13).unwrap();
+        let element1 = CREATOR13.from_u32(7);
+        let element2 = CREATOR13.from_u32(8);
 
-        assert!(element1.pow(9) == element2);
+        assert_eq!(element1.pow_u32(9), element2);
     }
 
     #[test]
     fn pow_success_2() {
-        let element1 = FieldElement::new(7, 13).unwrap();
-        let element2 = FieldElement::new(8, 13).unwrap();
+        let element1 = CREATOR13.from_u32(7);
+        let element2 = CREATOR13.from_u32(8);
 
-        assert!(element1.pow(-3) == element2);
+        assert_eq!(element1.pow_i64(-3), element2);
     }
 
     #[test]
     fn pow_success_3() {
-        let element1 = FieldElement::new(7, 13).unwrap();
-        let element2 = FieldElement::new(8, 13).unwrap();
+        let element1 = CREATOR13.from_u32(7);
+        let element2 = CREATOR13.from_u32(8);
 
-        assert!(element1.pow(-15) == element2);
+        assert!(element1.pow_i64(-15) == element2);
     }
 
     #[test]
-    fn div_1() {
-        let element1 = FieldElement::new(7, 19).unwrap();
-        let element2 = FieldElement::new(5, 19).unwrap();
-        let element3 = FieldElement::new(9, 19).unwrap();
+    fn div_success() {
+        let element1 = CREATOR19.from_u32(7);
+        let element2 = CREATOR19.from_u32(5);
+        let element3 = CREATOR19.from_u32(9);
 
-        assert!(element1/element2 == element3);
+        assert_eq!(element1/element2, element3);
     }
 }

@@ -1,4 +1,5 @@
 use std::cmp::PartialEq;
+use std::convert::TryFrom;
 use std::ops::{Add, Sub, Mul, Div};
 use std::fmt::{self, Display};
 use super::prime::Prime;
@@ -26,6 +27,14 @@ pub struct FieldElement {
 }
 
 impl FieldElement {
+    pub fn is_zero(&self) -> bool {
+        self.num == 0
+    }
+
+    pub fn prime(&self) -> Prime {
+        self.prime
+    }
+
     pub fn pow_u32(&self, exponent: u32) -> Self {
         let exponent = self.prime.create_exponent_from_u32(exponent);
         self.pow(exponent)
@@ -44,9 +53,11 @@ impl FieldElement {
         let mut result = 1;
         while exponent > 0 {
             if exponent % 2 == 1 {
-                result = (result * current) % prime;
+                let result_u64 = (result as u64 * current as u64) % (prime as u64);
+                result = u32::try_from(result_u64).expect("overflow when pow FieldElement");
             }
-            current = (current * current) % prime;
+            let current_u64 = (current as u64 * current as u64) % (prime as u64);
+            current = u32::try_from(current_u64).expect("overflow when pow FieldElement");
             exponent = exponent >> 1;
         }
 
@@ -80,8 +91,9 @@ impl Add for FieldElement {
         if self.prime != other.prime {
             panic!("cannot add two numbers in different Fields");
         }
+        let num = (self.num as u64 + other.num as u64) % (self.prime.0 as u64);
         Self {
-            num: (self.num + other.num) % self.prime.0,
+            num: u32::try_from(num).expect("overflow when add FieldElement"),
             prime: self.prime
         }
     }
@@ -94,8 +106,9 @@ impl Sub for FieldElement {
         if self.prime != other.prime {
             panic!("cannot sub two numbers in different Fields");
         }
+        let num = ((self.num as i64) - (other.num as i64)).rem_euclid(self.prime.0 as i64) as u32;
         Self {
-            num: (self.num - other.num) % self.prime.0,
+            num: u32::try_from(num).expect("overflow when sub FieldElement"),
             prime: self.prime
         }
     }
@@ -108,8 +121,9 @@ impl Mul for FieldElement {
         if self.prime != other.prime {
             panic!("cannot mul two numbers in different Fields");
         }
+        let num = (self.num as u64) * (other.num as u64) % (self.prime.0 as u64);
         Self {
-            num: (self.num * other.num) % self.prime.0,
+            num: u32::try_from(num).expect("overflow when mul FieldElement"),
             prime: self.prime
         }
     }
@@ -126,7 +140,6 @@ impl Div for FieldElement {
         // b^-1 = b^(-1+(prime-1)) = b^(prime-2)
         // a/b = a*b^-1 = a*b^(prime-2)
         let divisor = other.pow(other.prime.0 - 2);
-        println!("divisor: {:?}", divisor);
         self.mul(divisor)
     }
 }
@@ -139,6 +152,7 @@ mod tests {
     const CREATOR11: FieldElementCreator = FieldElementCreator(Prime(11));
     const CREATOR13: FieldElementCreator = FieldElementCreator(Prime(13));
     const CREATOR19: FieldElementCreator = FieldElementCreator(Prime(19));
+    const CREATOR_MAX: FieldElementCreator = FieldElementCreator(Prime(u32::MAX));
 
     // creator
 
@@ -210,6 +224,15 @@ mod tests {
     }
 
     #[test]
+    fn add_overflow_success() {
+        let element1 = CREATOR_MAX.from_u32(u32::MAX - 1);
+        let element2 = CREATOR_MAX.from_u32(u32::MAX - 2);
+        let element3 = CREATOR_MAX.from_u32(u32::MAX - 3);
+
+        assert_eq!(element1 + element2, element3);
+    }
+
+    #[test]
     #[should_panic]
     fn add_failed() {
         let element1 = CREATOR11.from_u32(7);
@@ -218,10 +241,19 @@ mod tests {
     }
 
     #[test]
-    fn sub_success() {
+    fn sub_success_1() {
         let element1 = CREATOR13.from_u32(7);
         let element2 = CREATOR13.from_u32(12);
         let element3 = CREATOR13.from_u32(5);
+
+        assert_eq!(element2 - element1, element3);
+    }
+
+    #[test]
+    fn sub_success_2() {
+        let element1 = CREATOR13.from_u32(12);
+        let element2 = CREATOR13.from_u32(7);
+        let element3 = CREATOR13.from_u32(8);
 
         assert_eq!(element2 - element1, element3);
     }
@@ -242,6 +274,15 @@ mod tests {
         let element3 = CREATOR13.from_u32(10);
 
         assert_eq!(element2 * element1, element3);
+    }
+
+    #[test]
+    fn mul_overflow_success() {
+        let element1 = CREATOR_MAX.from_u32(u32::MAX - 1);
+        let element2 = CREATOR_MAX.from_u32(2);
+        let element3 = CREATOR_MAX.from_u32(u32::MAX - 2);
+
+        assert_eq!(element1 * element2, element3);
     }
 
     #[test]
@@ -273,7 +314,15 @@ mod tests {
         let element1 = CREATOR13.from_u32(7);
         let element2 = CREATOR13.from_u32(8);
 
-        assert!(element1.pow_i64(-15) == element2);
+        assert_eq!(element1.pow_i64(-15), element2);
+    }
+
+    #[test]
+    fn pow_overflow_success() {
+        let element1 = CREATOR_MAX.from_u32(u32::MAX - 1);
+        let element2 = CREATOR_MAX.from_u32(1);
+
+        assert_eq!(element1.pow_u32(2), element2);
     }
 
     #[test]

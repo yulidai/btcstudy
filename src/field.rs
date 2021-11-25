@@ -3,7 +3,7 @@ use std::ops::{Add, Sub, Mul, Div};
 use std::fmt::{self, Display};
 use super::prime::Prime;
 
-pub struct FieldElementCreator(Prime);
+pub struct FieldElementCreator(pub Prime);
 
 impl FieldElementCreator {
     pub fn from_u32(&self, num: u32) -> FieldElement {

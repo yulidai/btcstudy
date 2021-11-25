@@ -1,31 +1,32 @@
 use std::cmp::PartialEq;
 use std::ops::Add;
+use crate::field::FieldElement;
 
-#[derive(Clone, PartialEq)]
-pub struct Point {
-    pub x: i32,
-    pub y: i32,
+#[derive(Clone, Debug, PartialEq)]
+pub struct FieldPoint {
+    pub x: FieldElement,
+    pub y: FieldElement,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EccPoint {
-    point: Option<Point>,
-    a: i32,
-    b: i32,
+    field_point: Option<FieldPoint>, // None if infinity
+    a: FieldElement,
+    b: FieldElement,
 }
 
 impl EccPoint {
-    pub fn new(point: Option<Point>, a: i32, b: i32) -> Result<Self, String> {
-        // EccPoint is infinity if Point is none
-        if let Some(point_real) = point.clone() {
+    pub fn new(field_point: Option<FieldPoint>, a: FieldElement, b: FieldElement) -> Result<Self, String> {
+        // EccPoint is infinity if FieldPoint is none
+        if let Some(point) = field_point.clone() {
             // y^2 = x^3 + ax + b
-            if point_real.y.pow(2) != point_real.x.pow(3) + a*point_real.x + b {
-                let msg = format!("({}, {}) is not on the curve", point_real.x, point_real.y);
+            if point.y.pow_u32(2) != point.x.pow_u32(3) + a*point.x + b {
+                let msg = format!("({}, {}) is not on the curve", point.x, point.y);
                 return Err(msg);
             }
         }
 
-        Ok(Self { point, a, b })
+        Ok(Self { field_point, a, b })
     }
 }
 
@@ -36,18 +37,17 @@ impl Add for EccPoint {
         if self.a != other.a || self.b != other.b {
             panic!("two point cannot be added which not on the same curve");
         }
-        if self.point.is_none() {
+        if self.field_point.is_none() {
             return other;
         }
-        if other.point.is_none() {
+        if other.field_point.is_none() {
             return self;
         }
 
-        let self_point = self.point.unwrap();
-        let other_point = other.point.unwrap();
+        let (self_point, other_point) = ( self.field_point.unwrap(), other.field_point.unwrap() );
         if self_point.x == other_point.x && self_point.y != other_point.y {
             return Self {
-                point: None,
+                field_point: None,
                 a: self.a,
                 b: self.b,
             };
@@ -59,48 +59,68 @@ impl Add for EccPoint {
 
 #[cfg(test)]
 mod tests {
-    use super::{Point, EccPoint};
+    use super::{FieldPoint, EccPoint};
+    use crate::field::{FieldElement, FieldElementCreator};
+    use crate::prime::Prime;
+
+    const CREATOR13: FieldElementCreator = FieldElementCreator(Prime(13));
+
+    fn get_a_and_b_of_curve() -> (FieldElement, FieldElement) {
+        (
+            CREATOR13.from_u32(5),
+            CREATOR13.from_u32(7)
+        )
+    }
 
     #[test]
     fn create_ecc_point_with_none() {
-        EccPoint::new(None, 5, 7).unwrap();
+        let (a, b) = get_a_and_b_of_curve();
+        EccPoint::new(None, a, b).unwrap();
     }
 
     #[test]
     fn create_ecc_point_with_point() {
-        let point = Point { x: -1, y: -1 };
-        EccPoint::new(Some(point), 5, 7).unwrap();
+        let (a, b) = get_a_and_b_of_curve();
+        let x = CREATOR13.from_i64(-1);
+        let y = CREATOR13.from_i64(-1);
+        let point = FieldPoint { x, y };
+        EccPoint::new(Some(point), a, b).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn create_ecc_point_fail() {
-        let point = Point { x: -1, y: -2 };
-        EccPoint::new(Some(point), 5, 7).unwrap();
+        let (a, b) = get_a_and_b_of_curve();
+        let x = CREATOR13.from_i64(-1);
+        let y = CREATOR13.from_i64(-2);
+        let point = FieldPoint { x, y };
+        EccPoint::new(Some(point), a, b).unwrap();
     }
 
     #[test]
     fn ecc_point_add_inifity() {
-        let point = Some(Point { x: -1, y: 1 });
-        let ecc_point1 = EccPoint::new(point, 5, 7).unwrap();
-        let ecc_point2 = EccPoint::new(None, 5, 7).unwrap();
+        let (a, b) = get_a_and_b_of_curve();
+        let point = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(1) });
+        let ecc_point1 = EccPoint::new(point, a, b).unwrap();
+        let ecc_point2 = EccPoint::new(None, a, b).unwrap();
 
-        let ecc_point_result1 = ecc_point1.clone() + ecc_point2.clone();
-        let ecc_point_result2 = ecc_point2.clone() + ecc_point1.clone();
-        assert!(ecc_point1 == ecc_point_result1);
-        assert!(ecc_point1 == ecc_point_result2);
+        let ecc_point_result = ecc_point1.clone() + ecc_point2.clone();
+        assert_eq!(ecc_point1, ecc_point_result);
     }
 
     #[test]
     fn ecc_point_add_by_using_two_point_with_same_x_and_different_y() {
-        let point1 = Some(Point { x: -1, y: 1 });
-        let ecc_point1 = EccPoint::new(point1, 5, 7).unwrap();
+        let (a, b) = get_a_and_b_of_curve();
 
-        let point2 = Some(Point { x: -1, y: -1 });
-        let ecc_point2 = EccPoint::new(point2, 5, 7).unwrap();
+        let point1 = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(1) });
+        let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
 
-        let ecc_point_infinity = EccPoint::new(None, 5, 7).unwrap();
+        let point2 = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(-1) });
+        let ecc_point2 = EccPoint::new(point2, a, b).unwrap();
+
+        let ecc_point_infinity = EccPoint::new(None, a, b).unwrap();
         let ecc_point_result = ecc_point1 + ecc_point2;
-        assert!(ecc_point_infinity == ecc_point_result);
+
+        assert_eq!(ecc_point_infinity, ecc_point_result);
     }
 }

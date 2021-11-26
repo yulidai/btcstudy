@@ -1,6 +1,6 @@
 use std::cmp::PartialEq;
 use std::ops::Add;
-use crate::field::FieldElement;
+use crate::field::{FieldElement, FieldElementCreator};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldPoint {
@@ -45,7 +45,25 @@ impl Add for EccPoint {
         }
 
         let (self_point, other_point) = ( self.field_point.unwrap(), other.field_point.unwrap() );
-        if self_point.x == other_point.x && self_point.y != other_point.y {
+        let (x1, y1) = (self_point.x, self_point.y);
+        let (x2, y2) = (other_point.x, other_point.y);
+
+        // x1 != x2
+        if x1 != x2 {
+            let s = (y2 - y1) / (x2 - x1); // div will be convert into field_element div
+            let x3 = s.pow_u32(2) - x1 - x2;
+            let y3 = s * (x1 - x3) - y1;
+
+            let point = FieldPoint { x: x3, y: y3 };
+            return Self {
+                field_point: Some(point),
+                a: self.a,
+                b: self.b,
+            };
+        }
+
+        // x1 == x2 && y1 != y2
+        if self_point.y != other_point.y {
             return Self {
                 field_point: None,
                 a: self.a,
@@ -53,7 +71,30 @@ impl Add for EccPoint {
             };
         }
 
-        panic!("not impl within Ecc.add");
+        // x1 == x2 && y1 == y2 && y1 == 0
+        // TODO check, 有限域下的 0 不一定就是实数下的 0
+        if y1.is_zero() {
+            return Self {
+                field_point: None,
+                a: self.a,
+                b: self.b,
+            }
+        }
+
+        // x1 == x2 && y1 == y2 && y1 != 0
+        let element_creator = FieldElementCreator(self.a.prime());
+        let two = element_creator.from_u32(2);
+        let three = element_creator.from_u32(3);
+        let s = (three * x1.pow_u32(2) + self.a) / (two * y1);
+        let x3 = s.pow_u32(2) - two * x1;
+        let y3 = s * (x1 - x3) - y1;
+
+        let point = FieldPoint { x: x3, y: y3 };
+        Self {
+            field_point: Some(point),
+            a: self.a,
+            b: self.b,
+        }
     }
 }
 
@@ -107,6 +148,26 @@ mod tests {
         let ecc_point_result = ecc_point1.clone() + ecc_point2.clone();
         assert_eq!(ecc_point1, ecc_point_result);
     }
+
+    #[test]
+    fn ecc_point_add_by_using_two_point_with_different_x() {
+        let (a, b) = get_a_and_b_of_curve();
+
+        let point1 = Some(FieldPoint { x: CREATOR13.from_i64(2), y: CREATOR13.from_i64(5) });
+        let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
+
+        let point2 = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(1) });
+        let ecc_point2 = EccPoint::new(point2, a, b).unwrap();
+
+        // to be checked again after chapter3
+        let point_correct = Some(FieldPoint { x: CREATOR13.from_i64(8), y: CREATOR13.from_i64(0) });
+        let ecc_point_result_correct = EccPoint::new(point_correct, a, b).unwrap();
+
+        let ecc_point_result = ecc_point1 + ecc_point2;
+        assert_eq!(ecc_point_result, ecc_point_result_correct);
+    }
+
+    // TODO add more test for the add function of ecc_point
 
     #[test]
     fn ecc_point_add_by_using_two_point_with_same_x_and_different_y() {

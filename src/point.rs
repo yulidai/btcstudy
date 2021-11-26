@@ -1,5 +1,5 @@
 use std::cmp::PartialEq;
-use std::ops::Add;
+use std::ops::{Add, Mul};
 use crate::field::{FieldElement, FieldElementCreator};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -27,6 +27,10 @@ impl EccPoint {
         }
 
         Ok(Self { field_point, a, b })
+    }
+
+    pub fn is_infinity(&self) -> bool {
+        self.field_point.is_none()
     }
 }
 
@@ -97,9 +101,43 @@ impl Add for EccPoint {
     }
 }
 
+// coefficient
+
+pub struct EccMulCoefficient(u32);
+
+impl From<u32> for EccMulCoefficient {
+    fn from(coefficient: u32) -> Self {
+        Self(coefficient)
+    }
+}
+
+impl Mul<EccPoint> for EccMulCoefficient {
+    type Output = EccPoint;
+
+    fn mul(self, point: EccPoint) -> EccPoint {
+        let mut coefficient = self.0;
+        let mut result = EccPoint {
+            field_point: None,
+            a: point.a,
+            b: point.b
+        };
+        let mut current = point;
+
+        while coefficient > 0 {
+            if coefficient % 2 == 1 {
+                result = result + current.clone();
+            }
+            current = current.clone() + current;
+            coefficient = coefficient >> 1;
+        }
+
+        return result;
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{FieldPoint, EccPoint};
+    use super::{FieldPoint, EccPoint, EccMulCoefficient};
     use crate::field::{FieldElement, FieldElementCreator};
     use crate::prime::Prime;
 
@@ -217,5 +255,64 @@ mod tests {
         let ecc_point_result = ecc_point.clone() + ecc_point;
 
         assert_eq!(ecc_point_correct, ecc_point_result);
+    }
+
+    #[test]
+    fn ecc_point_mul_coefficient_one() {
+        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+
+        let a = creator223.from_u32(0);
+        let b = creator223.from_u32(7);
+
+        let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
+        let ecc_point = EccPoint::new(point, a, b).unwrap();
+
+        let result = EccMulCoefficient(1) * ecc_point.clone();
+        assert_eq!(ecc_point, result);
+    }
+
+    #[test]
+    fn ecc_point_mul_coefficient_two() {
+        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+
+        let a = creator223.from_u32(0);
+        let b = creator223.from_u32(7);
+
+        let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
+        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let result = EccMulCoefficient(2) * ecc_point.clone();
+
+        let point_correct = Some(FieldPoint { x: creator223.from_i64(139), y: creator223.from_i64(86) });
+        let ecc_point_correct = EccPoint::new(point_correct, a, b).unwrap();
+
+        assert_eq!(ecc_point_correct, result);
+    }
+
+    #[test]
+    fn ecc_point_mul_coefficient_overflow_1() {
+        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+
+        let a = creator223.from_u32(0);
+        let b = creator223.from_u32(7);
+
+        let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
+        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let result = EccMulCoefficient(7) * ecc_point.clone();
+
+        assert!(result.is_infinity());
+    }
+
+    #[test]
+    fn ecc_point_mul_coefficient_overflow_2() {
+        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+
+        let a = creator223.from_u32(0);
+        let b = creator223.from_u32(7);
+
+        let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
+        let ecc_point = EccPoint::new(point, a, b).unwrap();
+
+        let result = EccMulCoefficient(8) * ecc_point.clone();
+        assert_eq!(ecc_point, result); // 7 is overflow, 8 % 7 = 1, so is equal
     }
 }

@@ -72,7 +72,6 @@ impl Add for EccPoint {
         }
 
         // x1 == x2 && y1 == y2 && y1 == 0
-        // TODO check, 有限域下的 0 不一定就是实数下的 0
         if y1.is_zero() {
             return Self {
                 field_point: None,
@@ -151,16 +150,18 @@ mod tests {
 
     #[test]
     fn ecc_point_add_by_using_two_point_with_different_x() {
-        let (a, b) = get_a_and_b_of_curve();
+        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
 
-        let point1 = Some(FieldPoint { x: CREATOR13.from_i64(2), y: CREATOR13.from_i64(5) });
+        let a = creator223.from_u32(0);
+        let b = creator223.from_u32(7);
+
+        let point1 = Some(FieldPoint { x: creator223.from_i64(170), y: creator223.from_i64(142) });
         let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
 
-        let point2 = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(1) });
+        let point2 = Some(FieldPoint { x: creator223.from_i64(60), y: creator223.from_i64(139) });
         let ecc_point2 = EccPoint::new(point2, a, b).unwrap();
 
-        // to be checked again after chapter3
-        let point_correct = Some(FieldPoint { x: CREATOR13.from_i64(8), y: CREATOR13.from_i64(0) });
+        let point_correct = Some(FieldPoint { x: creator223.from_i64(220), y: creator223.from_i64(181) });
         let ecc_point_result_correct = EccPoint::new(point_correct, a, b).unwrap();
 
         let ecc_point_result = ecc_point1 + ecc_point2;
@@ -183,5 +184,38 @@ mod tests {
         let ecc_point_result = ecc_point1 + ecc_point2;
 
         assert_eq!(ecc_point_infinity, ecc_point_result);
+    }
+
+    #[test]
+    fn ecc_point_add_by_using_two_point_with_same_x_and_same_y_and_y_is_zero() {
+        let creator13: FieldElementCreator = FieldElementCreator(Prime(13));
+
+        let a = creator13.from_u32(0);
+        let b = creator13.from_u32(12);
+
+        let point = Some(FieldPoint { x: creator13.from_i64(3), y: creator13.from_i64(0) });
+        let ecc_point = EccPoint::new(point, a, b).unwrap();
+
+        let ecc_point_infinity = EccPoint::new(None, a, b).unwrap();
+        let ecc_point_result = ecc_point.clone() + ecc_point;
+
+        assert_eq!(ecc_point_infinity, ecc_point_result);
+    }
+
+    #[test]
+    fn ecc_point_add_by_using_two_point_with_same_x_and_same_y_and_y_is_not_zero() {
+        let creator13: FieldElementCreator = FieldElementCreator(Prime(13));
+
+        let a = creator13.from_u32(0);
+        let b = creator13.from_u32(12);
+
+        let point = Some(FieldPoint { x: creator13.from_i64(7), y: creator13.from_i64(11) });
+        let ecc_point = EccPoint::new(point, a, b).unwrap();
+
+        let point_result = Some(FieldPoint { x: creator13.from_i64(0), y: creator13.from_i64(8) });
+        let ecc_point_correct = EccPoint::new(point_result, a, b).unwrap();
+        let ecc_point_result = ecc_point.clone() + ecc_point;
+
+        assert_eq!(ecc_point_correct, ecc_point_result);
     }
 }

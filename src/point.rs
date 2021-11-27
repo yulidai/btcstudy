@@ -20,7 +20,7 @@ impl EccPoint {
         // EccPoint is infinity if FieldPoint is none
         if let Some(point) = field_point.clone() {
             // y^2 = x^3 + ax + b
-            if point.y.pow_u32(2) != point.x.pow_u32(3) + a*point.x + b {
+            if point.y.pow_u256(2.into()) != point.x.pow_u256(3.into()) + a*point.x + b {
                 let msg = format!("({}, {}) is not on the curve", point.x, point.y);
                 return Err(msg);
             }
@@ -55,7 +55,7 @@ impl Add for EccPoint {
         // x1 != x2
         if x1 != x2 {
             let s = (y2 - y1) / (x2 - x1); // div will be convert into field_element div
-            let x3 = s.pow_u32(2) - x1 - x2;
+            let x3 = s.pow_u256(2.into()) - x1 - x2;
             let y3 = s * (x1 - x3) - y1;
 
             let point = FieldPoint { x: x3, y: y3 };
@@ -86,10 +86,10 @@ impl Add for EccPoint {
 
         // x1 == x2 && y1 == y2 && y1 != 0
         let element_creator = FieldElementCreator(self.a.prime());
-        let two = element_creator.from_u32(2);
-        let three = element_creator.from_u32(3);
-        let s = (three * x1.pow_u32(2) + self.a) / (two * y1);
-        let x3 = s.pow_u32(2) - two * x1;
+        let two = element_creator.from_u256(2.into());
+        let three = element_creator.from_u256(3.into());
+        let s = (three * x1.pow_u256(2.into()) + self.a) / (two * y1);
+        let x3 = s.pow_u256(2.into()) - two * x1;
         let y3 = s * (x1 - x3) - y1;
 
         let point = FieldPoint { x: x3, y: y3 };
@@ -140,13 +140,14 @@ mod tests {
     use super::{FieldPoint, EccPoint, EccMulCoefficient};
     use crate::field::{FieldElement, FieldElementCreator};
     use crate::prime::Prime;
+    use primitive_types::U256;
 
-    const CREATOR13: FieldElementCreator = FieldElementCreator(Prime(13));
 
     fn get_a_and_b_of_curve() -> (FieldElement, FieldElement) {
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
         (
-            CREATOR13.from_u32(5),
-            CREATOR13.from_u32(7)
+            creator13.from_u256(5.into()),
+            creator13.from_u256(7.into())
         )
     }
 
@@ -158,9 +159,10 @@ mod tests {
 
     #[test]
     fn create_ecc_point_with_point() {
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
         let (a, b) = get_a_and_b_of_curve();
-        let x = CREATOR13.from_i64(-1);
-        let y = CREATOR13.from_i64(-1);
+        let x = creator13.from_i64(-1);
+        let y = creator13.from_i64(-1);
         let point = FieldPoint { x, y };
         EccPoint::new(Some(point), a, b).unwrap();
     }
@@ -168,17 +170,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_ecc_point_fail() {
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
         let (a, b) = get_a_and_b_of_curve();
-        let x = CREATOR13.from_i64(-1);
-        let y = CREATOR13.from_i64(-2);
+        let x = creator13.from_i64(-1);
+        let y = creator13.from_i64(-2);
         let point = FieldPoint { x, y };
         EccPoint::new(Some(point), a, b).unwrap();
     }
 
     #[test]
     fn ecc_point_add_inifity() {
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
         let (a, b) = get_a_and_b_of_curve();
-        let point = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(1) });
+
+        let point = Some(FieldPoint { x: creator13.from_i64(-1), y: creator13.from_i64(1) });
         let ecc_point1 = EccPoint::new(point, a, b).unwrap();
         let ecc_point2 = EccPoint::new(None, a, b).unwrap();
 
@@ -188,10 +193,10 @@ mod tests {
 
     #[test]
     fn ecc_point_add_by_using_two_point_with_different_x() {
-        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+        let creator223 = FieldElementCreator(Prime(U256::from(223)));
 
-        let a = creator223.from_u32(0);
-        let b = creator223.from_u32(7);
+        let a = creator223.from_u256(0.into());
+        let b = creator223.from_u256(7.into());
 
         let point1 = Some(FieldPoint { x: creator223.from_i64(170), y: creator223.from_i64(142) });
         let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
@@ -206,16 +211,15 @@ mod tests {
         assert_eq!(ecc_point_result, ecc_point_result_correct);
     }
 
-    // TODO add more test for the add function of ecc_point
-
     #[test]
     fn ecc_point_add_by_using_two_point_with_same_x_and_different_y() {
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
         let (a, b) = get_a_and_b_of_curve();
 
-        let point1 = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(1) });
+        let point1 = Some(FieldPoint { x: creator13.from_i64(-1), y: creator13.from_i64(1) });
         let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
 
-        let point2 = Some(FieldPoint { x: CREATOR13.from_i64(-1), y: CREATOR13.from_i64(-1) });
+        let point2 = Some(FieldPoint { x: creator13.from_i64(-1), y: creator13.from_i64(-1) });
         let ecc_point2 = EccPoint::new(point2, a, b).unwrap();
 
         let ecc_point_infinity = EccPoint::new(None, a, b).unwrap();
@@ -226,10 +230,10 @@ mod tests {
 
     #[test]
     fn ecc_point_add_by_using_two_point_with_same_x_and_same_y_and_y_is_zero() {
-        let creator13: FieldElementCreator = FieldElementCreator(Prime(13));
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
 
-        let a = creator13.from_u32(0);
-        let b = creator13.from_u32(12);
+        let a = creator13.from_u256(0.into());
+        let b = creator13.from_u256(12.into());
 
         let point = Some(FieldPoint { x: creator13.from_i64(3), y: creator13.from_i64(0) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
@@ -242,10 +246,10 @@ mod tests {
 
     #[test]
     fn ecc_point_add_by_using_two_point_with_same_x_and_same_y_and_y_is_not_zero() {
-        let creator13: FieldElementCreator = FieldElementCreator(Prime(13));
+        let creator13: FieldElementCreator = FieldElementCreator(Prime(U256::from(13)));
 
-        let a = creator13.from_u32(0);
-        let b = creator13.from_u32(12);
+        let a = creator13.from_u256(0.into());
+        let b = creator13.from_u256(12.into());
 
         let point = Some(FieldPoint { x: creator13.from_i64(7), y: creator13.from_i64(11) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
@@ -259,10 +263,10 @@ mod tests {
 
     #[test]
     fn ecc_point_mul_coefficient_one() {
-        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+        let creator223 = FieldElementCreator(Prime(U256::from(223)));
 
-        let a = creator223.from_u32(0);
-        let b = creator223.from_u32(7);
+        let a = creator223.from_u256(0.into());
+        let b = creator223.from_u256(7.into());
 
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
@@ -273,10 +277,10 @@ mod tests {
 
     #[test]
     fn ecc_point_mul_coefficient_two() {
-        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+        let creator223 = FieldElementCreator(Prime(U256::from(223)));
 
-        let a = creator223.from_u32(0);
-        let b = creator223.from_u32(7);
+        let a = creator223.from_u256(0.into());
+        let b = creator223.from_u256(7.into());
 
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
@@ -290,10 +294,10 @@ mod tests {
 
     #[test]
     fn ecc_point_mul_coefficient_overflow_1() {
-        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+        let creator223 = FieldElementCreator(Prime(U256::from(223)));
 
-        let a = creator223.from_u32(0);
-        let b = creator223.from_u32(7);
+        let a = creator223.from_u256(0.into());
+        let b = creator223.from_u256(7.into());
 
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
@@ -304,10 +308,10 @@ mod tests {
 
     #[test]
     fn ecc_point_mul_coefficient_overflow_2() {
-        let creator223: FieldElementCreator = FieldElementCreator(Prime(223));
+        let creator223 = FieldElementCreator(Prime(U256::from(223)));
 
-        let a = creator223.from_u32(0);
-        let b = creator223.from_u32(7);
+        let a = creator223.from_u256(0.into());
+        let b = creator223.from_u256(7.into());
 
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();

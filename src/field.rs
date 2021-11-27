@@ -2,14 +2,15 @@ use std::cmp::PartialEq;
 use std::convert::TryFrom;
 use std::ops::{Add, Sub, Mul, Div};
 use std::fmt::{self, Display};
+use primitive_types::{U256, U512};
 use super::prime::Prime;
 
 pub struct FieldElementCreator(pub Prime);
 
 impl FieldElementCreator {
-    pub fn from_u32(&self, num: u32) -> FieldElement {
+    pub fn from_u256(&self, num: U256) -> FieldElement {
         let prime = self.0;
-        let num = prime.create_element_from_u32(num);
+        let num = prime.create_element_from_u256(num);
         FieldElement { num, prime }
     }
 
@@ -22,21 +23,21 @@ impl FieldElementCreator {
 
 #[derive(Debug, Copy, Clone)]
 pub struct FieldElement {
-    num: u32,
+    num: U256,
     prime: Prime,
 }
 
 impl FieldElement {
     pub fn is_zero(&self) -> bool {
-        self.num == 0
+        self.num.is_zero()
     }
 
     pub fn prime(&self) -> Prime {
         self.prime
     }
 
-    pub fn pow_u32(&self, exponent: u32) -> Self {
-        let exponent = self.prime.create_exponent_from_u32(exponent);
+    pub fn pow_u256(&self, exponent: U256) -> Self {
+        let exponent = self.prime.create_exponent_from_u256(exponent);
         self.pow(exponent)
     }
 
@@ -45,20 +46,22 @@ impl FieldElement {
         self.pow(exponent)
     }
 
-    fn pow(&self, mut exponent: u32) -> Self {
+    fn pow(&self, mut exponent: U256) -> Self {
         let prime = self.prime.0;
+        let zero = U256::zero();
+        let one = U256::one();
 
         // pow(num, exponent, prime)
         let mut current = self.num;
-        let mut result = 1;
-        while exponent > 0 {
-            if exponent % 2 == 1 {
-                let result_u64 = (result as u64 * current as u64) % (prime as u64);
-                result = u32::try_from(result_u64).expect("overflow when pow FieldElement");
+        let mut result = one;
+        while exponent > zero {
+            if exponent % 2 == one {
+                let result_u512 = ( U512::from(result) * U512::from(current) )% U512::from(prime);
+                result = U256::try_from(result_u512).expect("overflow when pow FieldElement");
             }
-            let current_u64 = (current as u64 * current as u64) % (prime as u64);
-            current = u32::try_from(current_u64).expect("overflow when pow FieldElement");
-            exponent = exponent >> 1;
+            let current_u512 = U512::from(current).pow(2.into()) % U512::from(prime);
+            current = U256::try_from(current_u512).expect("overflow when pow FieldElement");
+            exponent = exponent / 2;
         }
 
         Self {
@@ -91,9 +94,9 @@ impl Add for FieldElement {
         if self.prime != other.prime {
             panic!("cannot add two numbers in different Fields");
         }
-        let num = (self.num as u64 + other.num as u64) % (self.prime.0 as u64);
+        let num = ( U512::from(self.num) + U512::from(other.num) ) % U512::from(self.prime.0);
         Self {
-            num: u32::try_from(num).expect("overflow when add FieldElement"),
+            num: U256::try_from(num).expect("overflow when add FieldElement"),
             prime: self.prime
         }
     }
@@ -106,9 +109,13 @@ impl Sub for FieldElement {
         if self.prime != other.prime {
             panic!("cannot sub two numbers in different Fields");
         }
-        let num = ((self.num as i64) - (other.num as i64)).rem_euclid(self.prime.0 as i64) as u32;
+        let num = if self.num >= other.num {
+            self.num - other.num
+        } else {
+            self.prime.0 - other.num + self.num
+        };
         Self {
-            num: u32::try_from(num).expect("overflow when sub FieldElement"),
+            num: num % self.prime.0,
             prime: self.prime
         }
     }
@@ -121,9 +128,9 @@ impl Mul for FieldElement {
         if self.prime != other.prime {
             panic!("cannot mul two numbers in different Fields");
         }
-        let num = (self.num as u64) * (other.num as u64) % (self.prime.0 as u64);
+        let num = ( U512::from(self.num) * U512::from(other.num) ) % U512::from(self.prime.0);
         Self {
-            num: u32::try_from(num).expect("overflow when mul FieldElement"),
+            num: U256::try_from(num).expect("overflow when mul FieldElement"),
             prime: self.prime
         }
     }
@@ -144,57 +151,61 @@ impl Div for FieldElement {
     }
 }
 
+
+
 #[cfg(test)]
 mod tests {
+    use primitive_types::U256;
     use super::FieldElementCreator;
     use crate::prime::Prime;
-
-    const CREATOR11: FieldElementCreator = FieldElementCreator(Prime(11));
-    const CREATOR13: FieldElementCreator = FieldElementCreator(Prime(13));
-    const CREATOR19: FieldElementCreator = FieldElementCreator(Prime(19));
-    const CREATOR_MAX: FieldElementCreator = FieldElementCreator(Prime(u32::MAX));
 
     // creator
 
     #[test]
     fn create_field_element_with_u32_1() {
-        let element1 = CREATOR11.from_u32(10u32);
-        let element2 = CREATOR11.from_u32(21u32);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_u256(10u32.into());
+        let element2 = creator11.from_u256(21u32.into());
         assert_eq!(element1, element2);
     }
 
     #[test]
     fn create_field_element_with_u32_2() {
-        let element1 = CREATOR11.from_u32(0u32);
-        let element2 = CREATOR11.from_u32(11u32);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_u256(0u32.into());
+        let element2 = creator11.from_u256(11u32.into());
         assert_eq!(element1, element2);
     }
 
     #[test]
     fn create_field_element_with_i64_1() {
-        let element1 = CREATOR11.from_i64(10i64);
-        let element2 = CREATOR11.from_i64(21i64);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_i64(10i64);
+        let element2 = creator11.from_i64(21i64);
         assert_eq!(element1, element2);
     }
 
     #[test]
     fn create_field_element_with_i64_2() {
-        let element1 = CREATOR11.from_i64(0i64);
-        let element2 = CREATOR11.from_i64(11i64);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_i64(0i64);
+        let element2 = creator11.from_i64(11i64);
         assert_eq!(element1, element2);
     }
 
     #[test]
     fn create_field_element_with_i64_3() {
-        let element1 = CREATOR11.from_i64(-10i64);
-        let element2 = CREATOR11.from_i64(-21i64);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_i64(-10i64);
+        let element2 = creator11.from_i64(-21i64);
         assert_eq!(element1, element2);
     }
 
     #[test]
     fn create_field_element_with_i64_4() {
-        let element1 = CREATOR11.from_i64(-10i64);
-        let element2 = CREATOR11.from_i64(1i64);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_i64(-10i64);
+        let element2 = creator11.from_i64(1i64);
         assert_eq!(element1, element2);
     }
 
@@ -202,32 +213,36 @@ mod tests {
 
     #[test]
     fn eq_success() {
-        let element1 = CREATOR11.from_u32(5);
-        let element2 = CREATOR11.from_u32(5);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_u256(5.into());
+        let element2 = creator11.from_u256(5.into());
         assert!(element1 == element2);
     }
 
     #[test]
     fn ne_success() {
-        let element1 = CREATOR11.from_u32(5);
-        let element2 = CREATOR11.from_u32(8);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let element1 = creator11.from_u256(5.into());
+        let element2 = creator11.from_u256(8.into());
         assert!(element1 != element2);
     }
 
     #[test]
     fn add_success() {
-        let element1 = CREATOR13.from_u32(7);
-        let element2 = CREATOR13.from_u32(12);
-        let element3 = CREATOR13.from_u32(6);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator13.from_u256(7.into());
+        let element2 = creator13.from_u256(12.into());
+        let element3 = creator13.from_u256(6.into());
 
         assert_eq!(element1 + element2, element3);
     }
 
     #[test]
     fn add_overflow_success() {
-        let element1 = CREATOR_MAX.from_u32(u32::MAX - 1);
-        let element2 = CREATOR_MAX.from_u32(u32::MAX - 2);
-        let element3 = CREATOR_MAX.from_u32(u32::MAX - 3);
+        let creator_max = FieldElementCreator(Prime(U256::MAX));
+        let element1 = creator_max.from_u256(U256::MAX - 1);
+        let element2 = creator_max.from_u256(U256::MAX - 2);
+        let element3 = creator_max.from_u256(U256::MAX - 3);
 
         assert_eq!(element1 + element2, element3);
     }
@@ -235,25 +250,29 @@ mod tests {
     #[test]
     #[should_panic]
     fn add_failed() {
-        let element1 = CREATOR11.from_u32(7);
-        let element2 = CREATOR13.from_u32(12);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator11.from_u256(7.into());
+        let element2 = creator13.from_u256(12.into());
         let _ = element1 + element2;
     }
 
     #[test]
     fn sub_success_1() {
-        let element1 = CREATOR13.from_u32(7);
-        let element2 = CREATOR13.from_u32(12);
-        let element3 = CREATOR13.from_u32(5);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator13.from_u256(7.into());
+        let element2 = creator13.from_u256(12.into());
+        let element3 = creator13.from_u256(5.into());
 
         assert_eq!(element2 - element1, element3);
     }
 
     #[test]
     fn sub_success_2() {
-        let element1 = CREATOR13.from_u32(12);
-        let element2 = CREATOR13.from_u32(7);
-        let element3 = CREATOR13.from_u32(8);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator13.from_u256(12.into());
+        let element2 = creator13.from_u256(7.into());
+        let element3 = creator13.from_u256(8.into());
 
         assert_eq!(element2 - element1, element3);
     }
@@ -261,26 +280,32 @@ mod tests {
     #[test]
     #[should_panic]
     fn sub_failed() {
-        let element1 = CREATOR11.from_u32(7);
-        let element2 = CREATOR13.from_u32(12);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator11.from_u256(7.into());
+        let element2 = creator13.from_u256(12.into());
         let _ = element2 - element1;
     }
 
     #[test]
     fn mul_success() {
-        let element1 = CREATOR13.from_u32(3);
-        let element2 = CREATOR13.from_u32(12);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
 
-        let element3 = CREATOR13.from_u32(10);
+        let element1 = creator13.from_u256(3.into());
+        let element2 = creator13.from_u256(12.into());
+
+        let element3 = creator13.from_u256(10.into());
 
         assert_eq!(element2 * element1, element3);
     }
 
     #[test]
     fn mul_overflow_success() {
-        let element1 = CREATOR_MAX.from_u32(u32::MAX - 1);
-        let element2 = CREATOR_MAX.from_u32(2);
-        let element3 = CREATOR_MAX.from_u32(u32::MAX - 2);
+        let creator_max = FieldElementCreator(Prime(U256::MAX));
+
+        let element1 = creator_max.from_u256(U256::MAX - 1);
+        let element2 = creator_max.from_u256(2.into());
+        let element3 = creator_max.from_u256(U256::MAX - 2);
 
         assert_eq!(element1 * element2, element3);
     }
@@ -288,48 +313,56 @@ mod tests {
     #[test]
     #[should_panic]
     fn mul_failed() {
-        let element1 = CREATOR11.from_u32(3);
-        let element2 = CREATOR13.from_u32(12);
+        let creator11 = FieldElementCreator(Prime(U256::from(11)));
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+
+        let element1 = creator11.from_u256(3.into());
+        let element2 = creator13.from_u256(12.into());
         let _ = element1 * element2;
     }
 
     #[test]
     fn pow_success_1() {
-        let element1 = CREATOR13.from_u32(7);
-        let element2 = CREATOR13.from_u32(8);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator13.from_u256(7.into());
+        let element2 = creator13.from_u256(8.into());
 
-        assert_eq!(element1.pow_u32(9), element2);
+        assert_eq!(element1.pow_u256(9.into()), element2);
     }
 
     #[test]
     fn pow_success_2() {
-        let element1 = CREATOR13.from_u32(7);
-        let element2 = CREATOR13.from_u32(8);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator13.from_u256(7.into());
+        let element2 = creator13.from_u256(8.into());
 
         assert_eq!(element1.pow_i64(-3), element2);
     }
 
     #[test]
     fn pow_success_3() {
-        let element1 = CREATOR13.from_u32(7);
-        let element2 = CREATOR13.from_u32(8);
+        let creator13 = FieldElementCreator(Prime(U256::from(13)));
+        let element1 = creator13.from_u256(7.into());
+        let element2 = creator13.from_u256(8.into());
 
         assert_eq!(element1.pow_i64(-15), element2);
     }
 
     #[test]
     fn pow_overflow_success() {
-        let element1 = CREATOR_MAX.from_u32(u32::MAX - 1);
-        let element2 = CREATOR_MAX.from_u32(1);
+        let creator_max = FieldElementCreator(Prime(U256::MAX));
+        let element1 = creator_max.from_u256(U256::MAX - 1);
+        let element2 = creator_max.from_u256(1.into());
 
-        assert_eq!(element1.pow_u32(2), element2);
+        assert_eq!(element1.pow_u256(2.into()), element2);
     }
 
     #[test]
     fn div_success() {
-        let element1 = CREATOR19.from_u32(7);
-        let element2 = CREATOR19.from_u32(5);
-        let element3 = CREATOR19.from_u32(9);
+        let creator19 = FieldElementCreator(Prime(U256::from(19)));
+        let element1 = creator19.from_u256(7.into());
+        let element2 = creator19.from_u256(5.into());
+        let element3 = creator19.from_u256(9.into());
 
         assert_eq!(element1/element2, element3);
     }

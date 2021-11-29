@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 primitive-types = "0.10.1"
+hex = "0.4"

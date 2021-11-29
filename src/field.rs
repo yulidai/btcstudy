@@ -1,7 +1,7 @@
 use std::cmp::PartialEq;
 use std::convert::TryFrom;
 use std::ops::{Add, Sub, Mul, Div};
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, LowerHex};
 use primitive_types::{U256, U512};
 use super::prime::Prime;
 
@@ -56,11 +56,12 @@ impl FieldElement {
         let mut result = one;
         while exponent > zero {
             if exponent % 2 == one {
-                let result_u512 = ( U512::from(result) * U512::from(current) )% U512::from(prime);
+                let result_u512 = ( U512::from(result) * U512::from(current) ) % U512::from(prime);
                 result = U256::try_from(result_u512).expect("overflow when pow FieldElement");
             }
             let current_u512 = U512::from(current).pow(2.into()) % U512::from(prime);
             current = U256::try_from(current_u512).expect("overflow when pow FieldElement");
+
             exponent = exponent / 2;
         }
 
@@ -74,6 +75,12 @@ impl FieldElement {
 impl Display for FieldElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.num)
+    }
+}
+
+impl LowerHex for FieldElement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:x}", self.num)
     }
 }
 

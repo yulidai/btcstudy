@@ -102,27 +102,17 @@ impl Add for EccPoint {
     }
 }
 
-// coefficient
+// point * coefficient
+impl Mul<U256> for EccPoint {
+    type Output = Self;
 
-pub struct EccMulCoefficient(pub U256);
-
-impl From<U256> for EccMulCoefficient {
-    fn from(coefficient: U256) -> Self {
-        Self(coefficient)
-    }
-}
-
-impl Mul<EccPoint> for EccMulCoefficient {
-    type Output = EccPoint;
-
-    fn mul(self, point: EccPoint) -> EccPoint {
-        let mut coefficient = self.0;
+    fn mul(self, mut coefficient: U256) -> Self {
         let mut result = EccPoint {
             field_point: None,
-            a: point.a,
-            b: point.b
+            a: self.a,
+            b: self.b
         };
-        let mut current = point;
+        let mut current = self;
 
         while coefficient > U256::zero() {
             if coefficient % 2 == U256::one() {
@@ -138,7 +128,7 @@ impl Mul<EccPoint> for EccMulCoefficient {
 
 #[cfg(test)]
 mod tests {
-    use super::{FieldPoint, EccPoint, EccMulCoefficient};
+    use super::{FieldPoint, EccPoint};
     use crate::field::{FieldElement, FieldElementCreator};
     use crate::prime::Prime;
     use primitive_types::U256;
@@ -272,7 +262,7 @@ mod tests {
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
 
-        let result = EccMulCoefficient(1.into()) * ecc_point.clone();
+        let result = ecc_point.clone() * 1.into();
         assert_eq!(ecc_point, result);
     }
 
@@ -285,7 +275,7 @@ mod tests {
 
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
-        let result = EccMulCoefficient(2.into()) * ecc_point.clone();
+        let result = ecc_point.clone() * 2.into();
 
         let point_correct = Some(FieldPoint { x: creator223.from_i64(139), y: creator223.from_i64(86) });
         let ecc_point_correct = EccPoint::new(point_correct, a, b).unwrap();
@@ -302,7 +292,7 @@ mod tests {
 
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
-        let result = EccMulCoefficient(7.into()) * ecc_point.clone();
+        let result = ecc_point.clone() * 7.into();
 
         assert!(result.is_infinity());
     }
@@ -317,7 +307,7 @@ mod tests {
         let point = Some(FieldPoint { x: creator223.from_i64(15), y: creator223.from_i64(86) });
         let ecc_point = EccPoint::new(point, a, b).unwrap();
 
-        let result = EccMulCoefficient(8.into()) * ecc_point.clone();
+        let result = ecc_point.clone() * 8.into();
         assert_eq!(ecc_point, result); // 7 is overflow, 8 % 7 = 1, so is equal
     }
 }

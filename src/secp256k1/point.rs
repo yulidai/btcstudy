@@ -1,0 +1,107 @@
+use crate::field::FieldElementCreator;
+use crate::point::{EccPoint, FieldPoint};
+use primitive_types::U256;
+use std::ops::{Add, Mul};
+
+pub struct S256Point(EccPoint);
+
+impl S256Point {
+    pub fn new(point: FieldPoint) -> Result<Self, String> {
+        let p = super::prime();
+        let field_creator = FieldElementCreator(p);
+
+        let a = field_creator.from_u256(Self::a());
+        let b = field_creator.from_u256(Self::b());
+        let ecc_point = EccPoint::new(Some(point), a, b)?;
+
+        let n = Self::n();
+        if !( ecc_point.clone() * n ).is_infinity() {
+            return Err(format!("invalid n({:x}) for ecc_point({:?})", n, ecc_point));
+        }
+
+        Ok(Self(ecc_point))
+    }
+
+    pub fn inner(&self) -> &EccPoint {
+        &self.0
+    }
+
+    pub fn a() -> U256 {
+        U256::zero()
+    }
+    
+    pub fn b() -> U256 {
+        U256::from(7)
+    }
+    
+    pub fn n() -> U256 {
+        let big_endian = hex::decode("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141").expect("invalid n of secp256k1");
+        U256::from_big_endian(&big_endian)
+    }
+
+    pub fn g() -> Self {
+        let p = super::prime();
+        let field_creator = FieldElementCreator(p);
+
+        let gx = hex::decode("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798").expect("invalid gx");
+        let gx = p.create_element_from_u256(U256::from_big_endian(&gx));
+        let gx = field_creator.from_u256(gx);
+
+        let gy = hex::decode("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8").expect("invalid gy");
+        let gy = p.create_element_from_u256(U256::from_big_endian(&gy));
+        let gy = field_creator.from_u256(gy);
+
+        let field_point = FieldPoint{ x: gx, y: gy };
+
+        let a = Self::a();
+        let a = field_creator.from_u256(a);
+        let b = Self::b();
+        let b = field_creator.from_u256(b);
+        let ecc_point = EccPoint::new(Some(field_point), a, b).expect("invalid G of secp256k1");
+
+        Self(ecc_point)
+    }
+}
+
+impl Add<Self> for S256Point {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        let ecc_point = self.inner().clone() + rhs.inner().clone();
+        Self(ecc_point)
+    }
+}
+    
+
+impl Mul<U256> for S256Point {
+    type Output = Self;
+
+    fn mul(self, coefficient: U256) -> Self {
+        let n = Self::n();
+        let coefficient = coefficient % n;
+        let ecc_point_result = self.0 * coefficient;
+        
+        Self(ecc_point_result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::S256Point;
+
+    #[test]
+    fn g_is_not_infinity() {
+        let g = S256Point::g();
+        assert!(!g.inner().is_infinity());
+    }
+
+    #[test]
+    fn g_mul_n_is_infinity() {
+        let g = S256Point::g();
+        let n = S256Point::n();
+
+        let result = g * n;
+        assert!(result.inner().is_infinity());
+    }
+}
+

@@ -1,5 +1,5 @@
 use crate::field::FieldElementCreator;
-use crate::field_ecc::{FieldEccPoint, FieldPoint, FieldPointCreator};
+use crate::field_ecc::{FieldEccPoint, FieldEccPointCreator, FieldPoint, FieldPointCreator};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
 
@@ -9,11 +9,8 @@ pub struct S256Point(FieldEccPoint);
 impl S256Point {
     pub fn new(point: FieldPoint) -> Result<Self, String> {
         let p = super::prime();
-        let field_creator = FieldElementCreator(p);
-
-        let a = field_creator.from_u256(Self::a());
-        let b = field_creator.from_u256(Self::b());
-        let ecc_point = FieldEccPoint::new(Some(point), a, b)?;
+        let field_ecc_point = FieldEccPointCreator::new(p, Self::a(), Self::b());
+        let ecc_point = field_ecc_point.with_field_point(point)?;
 
         let n = super::n();
         if !( ecc_point.clone() * n ).is_infinity() {
@@ -53,13 +50,7 @@ impl S256Point {
 
         let field_point = FieldPointCreator::from_field_element(gx, gy).unwrap();
 
-        let a = Self::a();
-        let a = field_creator.from_u256(a);
-        let b = Self::b();
-        let b = field_creator.from_u256(b);
-        let ecc_point = FieldEccPoint::new(Some(field_point), a, b).expect("invalid G of secp256k1");
-
-        Self(ecc_point)
+        Self::new(field_point).expect("invalid G of secp256k1")
     }
 }
 

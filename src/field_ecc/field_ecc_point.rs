@@ -2,7 +2,7 @@ use primitive_types::U256;
 use std::cmp::PartialEq;
 use std::ops::{Add, Mul};
 use crate::field::{FieldElement, FieldElementCreator};
-use super::FieldPoint;
+use super::{FieldPoint, FieldPointCreator};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldEccPoint {
@@ -16,8 +16,8 @@ impl FieldEccPoint {
         // EccPoint is infinity if FieldPoint is none
         if let Some(point) = field_point.clone() {
             // y^2 = x^3 + ax + b
-            if point.y.pow_u256(2.into()) != point.x.pow_u256(3.into()) + a*point.x + b {
-                let msg = format!("({:x}, {:x}) is not on the curve({},{})", point.x, point.y, a, b);
+            if point.y().pow_u256(2.into()) != point.x().pow_u256(3.into()) + a*point.x() + b {
+                let msg = format!("({:x}, {:x}) is not on the curve({},{})", point.x(), point.y(), a, b);
                 return Err(msg);
             }
         }
@@ -53,8 +53,8 @@ impl Add for FieldEccPoint {
         }
 
         let (self_point, other_point) = ( self.field_point.unwrap(), other.field_point.unwrap() );
-        let (x1, y1) = (self_point.x, self_point.y);
-        let (x2, y2) = (other_point.x, other_point.y);
+        let (x1, y1) = (self_point.x(), self_point.y());
+        let (x2, y2) = (other_point.x(), other_point.y());
 
         // x1 != x2
         if x1 != x2 {
@@ -62,7 +62,7 @@ impl Add for FieldEccPoint {
             let x3 = s.pow_u256(2.into()) - x1 - x2;
             let y3 = s * (x1 - x3) - y1;
 
-            let point = FieldPoint { x: x3, y: y3 };
+            let point = FieldPointCreator::from_field_element(x3, y3).unwrap();
             return Self {
                 field_point: Some(point),
                 a: self.a,
@@ -71,7 +71,7 @@ impl Add for FieldEccPoint {
         }
 
         // x1 == x2 && y1 != y2
-        if self_point.y != other_point.y {
+        if self_point.y() != other_point.y() {
             return Self {
                 field_point: None,
                 a: self.a,
@@ -96,7 +96,7 @@ impl Add for FieldEccPoint {
         let x3 = s.pow_u256(2.into()) - two * x1;
         let y3 = s * (x1 - x3) - y1;
 
-        let point = FieldPoint { x: x3, y: y3 };
+        let point = FieldPointCreator::from_field_element(x3, y3).unwrap();
         Self {
             field_point: Some(point),
             a: self.a,

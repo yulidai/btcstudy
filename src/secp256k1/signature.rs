@@ -23,7 +23,7 @@ impl Signature {
         let cal_pk_point = g * (z/self.s).num() + s256_pk_point * (self.r/self.s).num();
         let cal_x = match cal_pk_point.into_inner().into_field_point() {
             None => return false,
-            Some(p) => p.x,
+            Some(p) => p.x(),
         };
 
         cal_x.num() == self.r.num()
@@ -32,7 +32,7 @@ impl Signature {
 
 #[cfg(test)]
 mod tests {
-    use crate::field_ecc::FieldPoint;
+    use crate::field_ecc::FieldPointCreator;
     use crate::secp256k1::{point::S256Point, S256FieldCreator};
     use primitive_types::U256;
     use super::Signature;
@@ -54,7 +54,7 @@ mod tests {
         let py = U256::from_big_endian(&py);
         let px = S256FieldCreator::from_u256(px);
         let py = S256FieldCreator::from_u256(py);
-        let field_point = FieldPoint { x: px, y: py };
+        let field_point = FieldPointCreator::from_field_element(px, py).unwrap();
         let s256_pk_point = S256Point::new(field_point).unwrap();
 
         assert_eq!(signature.verify(z, s256_pk_point), true);
@@ -77,7 +77,7 @@ mod tests {
         let py = U256::from_big_endian(&py);
         let px = S256FieldCreator::from_u256(px);
         let py = S256FieldCreator::from_u256(py);
-        let field_point = FieldPoint { x: px, y: py };
+        let field_point = FieldPointCreator::from_field_element(px, py).unwrap();
         let s256_pk_point = S256Point::new(field_point).unwrap();
 
         assert_eq!(signature.verify(z, s256_pk_point), false);

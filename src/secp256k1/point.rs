@@ -1,5 +1,5 @@
 use crate::field::FieldElementCreator;
-use crate::field_ecc::{FieldEccPoint, FieldPoint};
+use crate::field_ecc::{FieldEccPoint, FieldPoint, FieldPointCreator};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
 
@@ -51,7 +51,7 @@ impl S256Point {
         let gy = p.create_element_from_u256(U256::from_big_endian(&gy));
         let gy = field_creator.from_u256(gy);
 
-        let field_point = FieldPoint{ x: gx, y: gy };
+        let field_point = FieldPointCreator::from_field_element(gx, gy).unwrap();
 
         let a = Self::a();
         let a = field_creator.from_u256(a);

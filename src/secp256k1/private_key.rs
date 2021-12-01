@@ -31,7 +31,7 @@ impl PrivateKey {
         let k = S256NFieldCreator::from_u256(k);
         let k_pk = g * k.num();
         let r = match k_pk.into_inner().into_field_point() {
-            Some(p) => p.x,
+            Some(p) => p.x(),
             None => return Err("failed to sign because of k*G=infinity"),
         };
         let r = S256NFieldCreator::from_u256(r.num());

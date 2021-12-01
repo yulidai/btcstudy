@@ -19,10 +19,27 @@ impl FieldPointCreator {
         let y = self.0.from_i64(y);
         FieldPoint { x, y }
     }
+
+    pub fn from_field_element(x: FieldElement, y: FieldElement) -> Result<FieldPoint, &'static str> {
+        if x.prime() != y.prime() {
+            return Err("cannot create field_point with different prime of x and y");
+        }
+        Ok( FieldPoint { x, y } )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldPoint {
-    pub x: FieldElement,
-    pub y: FieldElement,
+    x: FieldElement,
+    y: FieldElement,
+}
+
+impl FieldPoint {
+    pub fn x(&self) -> FieldElement {
+        self.x
+    }
+
+    pub fn y(&self) -> FieldElement {
+        self.y
+    }
 }

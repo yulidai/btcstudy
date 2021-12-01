@@ -1,5 +1,5 @@
 use crate::field::FieldElementCreator;
-use crate::point::{EccPoint, FieldPoint};
+use crate::field_ecc::{EccPoint, FieldPoint};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
 

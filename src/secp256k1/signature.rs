@@ -32,7 +32,7 @@ impl Signature {
 
 #[cfg(test)]
 mod tests {
-    use crate::point::FieldPoint;
+    use crate::field_ecc::FieldPoint;
     use crate::secp256k1::{point::S256Point, S256FieldCreator};
     use primitive_types::U256;
     use super::Signature;

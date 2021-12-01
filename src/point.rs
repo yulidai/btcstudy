@@ -137,8 +137,7 @@ impl Mul<U256> for EccPoint {
 #[cfg(test)]
 mod tests {
     use super::{FieldPoint, EccPoint};
-    use crate::field::{FieldElement, FieldElementCreator};
-    use crate::prime::Prime;
+    use crate::field::{Prime, FieldElement, FieldElementCreator};
     use primitive_types::U256;
 
 

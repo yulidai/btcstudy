@@ -3,7 +3,9 @@ use std::convert::TryFrom;
 use std::ops::{Add, Sub, Mul, Div};
 use std::fmt::{self, Display, LowerHex};
 use primitive_types::{U256, U512};
-use super::prime::Prime;
+pub use prime::Prime;
+
+mod prime;
 
 pub struct FieldElementCreator(pub Prime);
 
@@ -33,7 +35,7 @@ impl FieldElement {
     }
 
     pub fn num(&self) -> U256 {
-        self.num
+        self.num 
     }
 
     pub fn prime(&self) -> Prime {
@@ -167,8 +169,7 @@ impl Div for FieldElement {
 #[cfg(test)]
 mod tests {
     use primitive_types::U256;
-    use super::FieldElementCreator;
-    use crate::prime::Prime;
+    use super::{FieldElementCreator, Prime};
 
     // creator
 

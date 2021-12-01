@@ -1,7 +1,6 @@
 use primitive_types::{U256, U512};
 use std::convert::TryFrom;
-use crate::field::{FieldElement, FieldElementCreator};
-use crate::prime::Prime;
+use crate::field::{Prime, FieldElement, FieldElementCreator};
 
 pub mod point;
 pub mod signature;

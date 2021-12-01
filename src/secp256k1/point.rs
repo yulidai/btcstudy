@@ -1,10 +1,10 @@
 use crate::field::FieldElementCreator;
-use crate::field_ecc::{EccPoint, FieldPoint};
+use crate::field_ecc::{FieldEccPoint, FieldPoint};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
 
 #[derive(Clone)]
-pub struct S256Point(EccPoint);
+pub struct S256Point(FieldEccPoint);
 
 impl S256Point {
     pub fn new(point: FieldPoint) -> Result<Self, String> {
@@ -13,7 +13,7 @@ impl S256Point {
 
         let a = field_creator.from_u256(Self::a());
         let b = field_creator.from_u256(Self::b());
-        let ecc_point = EccPoint::new(Some(point), a, b)?;
+        let ecc_point = FieldEccPoint::new(Some(point), a, b)?;
 
         let n = super::n();
         if !( ecc_point.clone() * n ).is_infinity() {
@@ -23,11 +23,11 @@ impl S256Point {
         Ok(Self(ecc_point))
     }
 
-    pub fn into_inner(self) -> EccPoint {
+    pub fn into_inner(self) -> FieldEccPoint {
         self.0
     }
 
-    pub fn inner(&self) -> &EccPoint {
+    pub fn inner(&self) -> &FieldEccPoint {
         &self.0
     }
 
@@ -57,7 +57,7 @@ impl S256Point {
         let a = field_creator.from_u256(a);
         let b = Self::b();
         let b = field_creator.from_u256(b);
-        let ecc_point = EccPoint::new(Some(field_point), a, b).expect("invalid G of secp256k1");
+        let ecc_point = FieldEccPoint::new(Some(field_point), a, b).expect("invalid G of secp256k1");
 
         Self(ecc_point)
     }

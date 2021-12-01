@@ -5,13 +5,13 @@ use crate::field::{FieldElement, FieldElementCreator};
 use super::FieldPoint;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct EccPoint {
+pub struct FieldEccPoint {
     field_point: Option<FieldPoint>, // None if infinity
     a: FieldElement,
     b: FieldElement,
 }
 
-impl EccPoint {
+impl FieldEccPoint {
     pub fn new(field_point: Option<FieldPoint>, a: FieldElement, b: FieldElement) -> Result<Self, String> {
         // EccPoint is infinity if FieldPoint is none
         if let Some(point) = field_point.clone() {
@@ -38,7 +38,7 @@ impl EccPoint {
     }
 }
 
-impl Add for EccPoint {
+impl Add for FieldEccPoint {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -106,11 +106,11 @@ impl Add for EccPoint {
 }
 
 // point * coefficient
-impl Mul<U256> for EccPoint {
+impl Mul<U256> for FieldEccPoint {
     type Output = Self;
 
     fn mul(self, mut coefficient: U256) -> Self {
-        let mut result = EccPoint {
+        let mut result = Self {
             field_point: None,
             a: self.a,
             b: self.b
@@ -132,7 +132,7 @@ impl Mul<U256> for EccPoint {
 #[cfg(test)]
 mod tests {
     use super::super::FieldPointCreator;
-    use super::EccPoint;
+    use super::FieldEccPoint;
     use crate::field::{Prime, FieldElement, FieldElementCreator};
     use primitive_types::U256;
 
@@ -147,7 +147,7 @@ mod tests {
     #[test]
     fn create_ecc_point_with_none() {
         let (a, b) = get_a_and_b_of_curve();
-        EccPoint::new(None, a, b).unwrap();
+        FieldEccPoint::new(None, a, b).unwrap();
     }
 
     #[test]
@@ -158,7 +158,7 @@ mod tests {
         let field_point_creator = FieldPointCreator::new(prime);
         let point = field_point_creator.from_i64(-1, -1);
 
-        EccPoint::new(Some(point), a, b).unwrap();
+        FieldEccPoint::new(Some(point), a, b).unwrap();
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod tests {
         let point = field_point_creator.from_i64(-1, -2);
 
         let (a, b) = get_a_and_b_of_curve();
-        EccPoint::new(Some(point), a, b).unwrap();
+        FieldEccPoint::new(Some(point), a, b).unwrap();
     }
 
     #[test]
@@ -179,8 +179,8 @@ mod tests {
         let point = field_point_creator.from_i64(-1, 1);
 
         let (a, b) = get_a_and_b_of_curve();
-        let ecc_point1 = EccPoint::new(Some(point), a, b).unwrap();
-        let ecc_point2 = EccPoint::new(None, a, b).unwrap();
+        let ecc_point1 = FieldEccPoint::new(Some(point), a, b).unwrap();
+        let ecc_point2 = FieldEccPoint::new(None, a, b).unwrap();
 
         let ecc_point_result = ecc_point1.clone() + ecc_point2.clone();
         assert_eq!(ecc_point1, ecc_point_result);
@@ -198,11 +198,11 @@ mod tests {
         let point1 = Some( field_point_creator.from_i64(170, 142) );
         let point2 = Some( field_point_creator.from_i64(60, 139) );
 
-        let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
-        let ecc_point2 = EccPoint::new(point2, a, b).unwrap();
+        let ecc_point1 = FieldEccPoint::new(point1, a, b).unwrap();
+        let ecc_point2 = FieldEccPoint::new(point2, a, b).unwrap();
 
         let point_correct = Some( field_point_creator.from_i64(220, 181) );
-        let ecc_point_result_correct = EccPoint::new(point_correct, a, b).unwrap();
+        let ecc_point_result_correct = FieldEccPoint::new(point_correct, a, b).unwrap();
 
         let ecc_point_result = ecc_point1 + ecc_point2;
         assert_eq!(ecc_point_result, ecc_point_result_correct);
@@ -217,10 +217,10 @@ mod tests {
         let point1 = Some( field_point_creator.from_i64(-1, 1) );
         let point2 = Some( field_point_creator.from_i64(-1, -1) );
 
-        let ecc_point1 = EccPoint::new(point1, a, b).unwrap();
-        let ecc_point2 = EccPoint::new(point2, a, b).unwrap();
+        let ecc_point1 = FieldEccPoint::new(point1, a, b).unwrap();
+        let ecc_point2 = FieldEccPoint::new(point2, a, b).unwrap();
 
-        let ecc_point_infinity = EccPoint::new(None, a, b).unwrap();
+        let ecc_point_infinity = FieldEccPoint::new(None, a, b).unwrap();
         let ecc_point_result = ecc_point1 + ecc_point2;
 
         assert_eq!(ecc_point_infinity, ecc_point_result);
@@ -236,9 +236,9 @@ mod tests {
 
         let field_point_creator = FieldPointCreator::new(prime);
         let point = Some( field_point_creator.from_i64(3, 0) );
-        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let ecc_point = FieldEccPoint::new(point, a, b).unwrap();
 
-        let ecc_point_infinity = EccPoint::new(None, a, b).unwrap();
+        let ecc_point_infinity = FieldEccPoint::new(None, a, b).unwrap();
         let ecc_point_result = ecc_point.clone() + ecc_point;
 
         assert_eq!(ecc_point_infinity, ecc_point_result);
@@ -254,10 +254,10 @@ mod tests {
 
         let field_point_creator = FieldPointCreator::new(prime);
         let point = Some( field_point_creator.from_i64(7, 11) );
-        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let ecc_point = FieldEccPoint::new(point, a, b).unwrap();
 
         let point_result = Some( field_point_creator.from_i64(0, 8) );
-        let ecc_point_correct = EccPoint::new(point_result, a, b).unwrap();
+        let ecc_point_correct = FieldEccPoint::new(point_result, a, b).unwrap();
         let ecc_point_result = ecc_point.clone() + ecc_point;
 
         assert_eq!(ecc_point_correct, ecc_point_result);
@@ -273,7 +273,7 @@ mod tests {
 
         let field_point_creator = FieldPointCreator::new(prime);
         let point = Some( field_point_creator.from_i64(15, 86) );
-        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let ecc_point = FieldEccPoint::new(point, a, b).unwrap();
 
         let result = ecc_point.clone() * 1.into();
         assert_eq!(ecc_point, result);
@@ -289,11 +289,11 @@ mod tests {
 
         let field_point_creator = FieldPointCreator::new(prime);
         let point = Some( field_point_creator.from_i64(15, 86) );
-        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let ecc_point = FieldEccPoint::new(point, a, b).unwrap();
         let result = ecc_point.clone() * 2.into();
 
         let point_correct = Some( field_point_creator.from_i64(139, 86) );
-        let ecc_point_correct = EccPoint::new(point_correct, a, b).unwrap();
+        let ecc_point_correct = FieldEccPoint::new(point_correct, a, b).unwrap();
 
         assert_eq!(ecc_point_correct, result);
     }
@@ -308,7 +308,7 @@ mod tests {
 
         let field_point_creator = FieldPointCreator::new(prime);
         let point = Some( field_point_creator.from_i64(15, 86) );
-        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let ecc_point = FieldEccPoint::new(point, a, b).unwrap();
         let result = ecc_point.clone() * 7.into();
 
         assert!(result.is_infinity());
@@ -324,7 +324,7 @@ mod tests {
 
         let field_point_creator = FieldPointCreator::new(prime);
         let point = Some( field_point_creator.from_i64(15, 86) );
-        let ecc_point = EccPoint::new(point, a, b).unwrap();
+        let ecc_point = FieldEccPoint::new(point, a, b).unwrap();
 
         let result = ecc_point.clone() * 8.into();
         assert_eq!(ecc_point, result); // 7 is overflow, 8 % 7 = 1, so is equal

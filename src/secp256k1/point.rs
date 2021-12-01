@@ -14,12 +14,16 @@ impl S256Point {
         let b = field_creator.from_u256(Self::b());
         let ecc_point = EccPoint::new(Some(point), a, b)?;
 
-        let n = Self::n();
+        let n = super::n();
         if !( ecc_point.clone() * n ).is_infinity() {
             return Err(format!("invalid n({:x}) for ecc_point({:?})", n, ecc_point));
         }
 
         Ok(Self(ecc_point))
+    }
+
+    pub fn into_inner(self) -> EccPoint {
+        self.0
     }
 
     pub fn inner(&self) -> &EccPoint {
@@ -32,11 +36,6 @@ impl S256Point {
     
     pub fn b() -> U256 {
         U256::from(7)
-    }
-    
-    pub fn n() -> U256 {
-        let big_endian = hex::decode("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141").expect("invalid n of secp256k1");
-        U256::from_big_endian(&big_endian)
     }
 
     pub fn g() -> Self {
@@ -77,7 +76,7 @@ impl Mul<U256> for S256Point {
     type Output = Self;
 
     fn mul(self, coefficient: U256) -> Self {
-        let n = Self::n();
+        let n = super::n();
         let coefficient = coefficient % n;
         let ecc_point_result = self.0 * coefficient;
         
@@ -98,7 +97,7 @@ mod tests {
     #[test]
     fn g_mul_n_is_infinity() {
         let g = S256Point::g();
-        let n = S256Point::n();
+        let n = super::super::n();
 
         let result = g * n;
         assert!(result.inner().is_infinity());

@@ -33,6 +33,10 @@ impl EccPoint {
     pub fn is_infinity(&self) -> bool {
         self.field_point.is_none()
     }
+
+    pub fn into_field_point(self) -> Option<FieldPoint> {
+        self.field_point
+    }
 }
 
 impl Add for EccPoint {

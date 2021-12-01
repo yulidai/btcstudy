@@ -32,6 +32,10 @@ impl FieldElement {
         self.num.is_zero()
     }
 
+    pub fn num(&self) -> U256 {
+        self.num
+    }
+
     pub fn prime(&self) -> Prime {
         self.prime
     }

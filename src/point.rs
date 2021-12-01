@@ -34,6 +34,10 @@ impl EccPoint {
         self.field_point.is_none()
     }
 
+    pub fn field_point(&self) -> &Option<FieldPoint> {
+        &self.field_point
+    }
+
     pub fn into_field_point(self) -> Option<FieldPoint> {
         self.field_point
     }

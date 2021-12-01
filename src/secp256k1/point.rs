@@ -3,6 +3,7 @@ use crate::point::{EccPoint, FieldPoint};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
 
+#[derive(Clone)]
 pub struct S256Point(EccPoint);
 
 impl S256Point {

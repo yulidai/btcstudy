@@ -5,6 +5,7 @@ use crate::prime::Prime;
 
 pub mod point;
 pub mod signature;
+pub mod private_key;
 
 pub struct S256FieldCreator;
 

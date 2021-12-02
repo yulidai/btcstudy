@@ -1,24 +1,23 @@
 use primitive_types::U256;
-use crate::field::FieldElement;
-use crate::secp256k1::S256NFieldCreator;
 use crate::secp256k1::point::S256Point;
+use super::{S256FieldElementN, S256FieldElementNCreator};
 
 pub struct Signature {
-    r: FieldElement,
-    s: FieldElement,
+    r: S256FieldElementN,
+    s: S256FieldElementN,
 }
 
 impl Signature {
     pub fn new(r: U256, s: U256) -> Self {
-        let r = S256NFieldCreator::from_u256(r);
-        let s = S256NFieldCreator::from_u256(s);
+        let r = S256FieldElementNCreator::from_u256(r);
+        let s = S256FieldElementNCreator::from_u256(s);
 
         Self { r, s }
     }
 
     // sig = (z + r*e)/k
     pub fn verify(&self, z: U256, s256_pk_point: S256Point) -> bool {
-        let z = S256NFieldCreator::from_u256(z);
+        let z = S256FieldElementNCreator::from_u256(z);
         let g = S256Point::g();
         let cal_pk_point = g * (z/self.s).num() + s256_pk_point * (self.r/self.s).num();
         let cal_x = match cal_pk_point.into_inner().into_field_point() {
@@ -32,8 +31,7 @@ impl Signature {
 
 #[cfg(test)]
 mod tests {
-    use crate::field_ecc::FieldPointCreator;
-    use crate::secp256k1::{point::S256Point, S256FieldCreator};
+    use crate::secp256k1::{point::S256Point, S256FieldElementPCreator};
     use primitive_types::U256;
     use super::Signature;
 
@@ -52,10 +50,9 @@ mod tests {
         let py = hex::decode("82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4").unwrap();        
         let px = U256::from_big_endian(&px);
         let py = U256::from_big_endian(&py);
-        let px = S256FieldCreator::from_u256(px);
-        let py = S256FieldCreator::from_u256(py);
-        let field_point = FieldPointCreator::from_field_element(px, py).unwrap();
-        let s256_pk_point = S256Point::new(field_point).unwrap();
+        let px = S256FieldElementPCreator::from_u256(px);
+        let py = S256FieldElementPCreator::from_u256(py);
+        let s256_pk_point = S256Point::from_s256_field_element(px, py).unwrap();
 
         assert_eq!(signature.verify(z, s256_pk_point), true);
     }
@@ -75,10 +72,9 @@ mod tests {
         let py = hex::decode("82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4").unwrap();        
         let px = U256::from_big_endian(&px);
         let py = U256::from_big_endian(&py);
-        let px = S256FieldCreator::from_u256(px);
-        let py = S256FieldCreator::from_u256(py);
-        let field_point = FieldPointCreator::from_field_element(px, py).unwrap();
-        let s256_pk_point = S256Point::new(field_point).unwrap();
+        let px = S256FieldElementPCreator::from_u256(px);
+        let py = S256FieldElementPCreator::from_u256(py);
+        let s256_pk_point = S256Point::from_s256_field_element(px, py).unwrap();
 
         assert_eq!(signature.verify(z, s256_pk_point), false);
     }

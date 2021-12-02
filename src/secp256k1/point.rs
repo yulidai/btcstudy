@@ -1,17 +1,21 @@
-use crate::field::FieldElementCreator;
 use crate::field_ecc::{FieldEccPoint, FieldEccPointCreator, FieldPoint, FieldPointCreator};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
-use super::S256Curve;
+use super::{S256Curve, S256FieldElementP, S256FieldElementPCreator};
 
 #[derive(Clone)]
 pub struct S256Point(FieldEccPoint);
 
 impl S256Point {
-    pub fn new(point: FieldPoint) -> Result<Self, String> {
+    pub fn from_s256_field_element(x: S256FieldElementP, y: S256FieldElementP) -> Result<Self, String> {
+        let field_point = FieldPointCreator::from_field_element(x.into_inner(), y.into_inner()).expect("prime of s256_field_element is different");
+        Self::from_field_point(field_point)
+    }
+
+    pub fn from_field_point(point: FieldPoint) -> Result<Self, String> {
         let p = S256Curve::prime();
-        let field_ecc_point = FieldEccPointCreator::new(p, S256Curve::a(), S256Curve::b());
-        let ecc_point = field_ecc_point.with_field_point(point)?;
+        let field_ecc_point_creator = FieldEccPointCreator::new(p, S256Curve::a(), S256Curve::b());
+        let ecc_point = field_ecc_point_creator.with_field_point(point)?;
 
         let n = S256Curve::n();
         if !( ecc_point.clone() * n ).is_infinity() {
@@ -30,20 +34,14 @@ impl S256Point {
     }
 
     pub fn g() -> Self {
-        let p = S256Curve::prime();
-        let field_creator = FieldElementCreator(p);
-
         let gx = hex::decode("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798").expect("invalid gx");
-        let gx = p.create_element_from_u256(U256::from_big_endian(&gx));
-        let gx = field_creator.from_u256(gx);
-
         let gy = hex::decode("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8").expect("invalid gy");
-        let gy = p.create_element_from_u256(U256::from_big_endian(&gy));
-        let gy = field_creator.from_u256(gy);
 
-        let field_point = FieldPointCreator::from_field_element(gx, gy).unwrap();
+        let gx = S256FieldElementPCreator::from_u256(U256::from_big_endian(&gx));
+        let gy = S256FieldElementPCreator::from_u256(U256::from_big_endian(&gy));
+        let field_point = FieldPointCreator::from_field_element(gx.into_inner(), gy.into_inner()).unwrap();
 
-        Self::new(field_point).expect("invalid G of secp256k1")
+        Self::from_field_point(field_point).expect("invalid G of secp256k1")
     }
 }
 

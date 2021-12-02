@@ -1,10 +1,18 @@
 use primitive_types::{U256, U512};
 use std::convert::TryFrom;
-use crate::field::{Prime, FieldElement, FieldElementCreator};
+use crate::field::Prime;
 
-pub mod point;
-pub mod signature;
-pub mod private_key;
+pub use element_n::{S256FieldElementN, S256FieldElementNCreator};
+pub use element_p::{S256FieldElementP, S256FieldElementPCreator};
+pub use point::S256Point;
+pub use private_key::PrivateKey;
+pub use signature::Signature;
+
+mod element_n;
+mod element_p;
+mod point;
+mod signature;
+mod private_key;
 
 pub struct S256Curve;
 
@@ -28,37 +36,3 @@ impl S256Curve {
         Prime(p)
     }
 }
-
-// creator
-
-pub struct S256FieldCreator;
-
-impl S256FieldCreator {
-    pub fn from_u256(num: U256) -> FieldElement {
-        let prime = S256Curve::prime();
-        FieldElementCreator(prime).from_u256(num)
-    }
-
-    pub fn from_i64(num: i64) -> FieldElement {
-        let prime = S256Curve::prime();
-        FieldElementCreator(prime).from_i64(num)
-    }
-}
-
-// for calculate signature
-
-pub struct S256NFieldCreator;
-
-impl S256NFieldCreator {
-    pub fn from_u256(num: U256) -> FieldElement {
-        let prime = Prime(S256Curve::n());
-        FieldElementCreator(prime).from_u256(num)
-    }
-
-    pub fn from_i64(num: i64) -> FieldElement {
-        let prime = Prime(S256Curve::n());
-        FieldElementCreator(prime).from_i64(num)
-    }
-}
-
-

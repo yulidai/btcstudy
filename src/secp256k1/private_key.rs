@@ -41,6 +41,8 @@ impl PrivateKey {
 
         Ok(Signature::new(r.num(), signature.num()))
     }
+
+    //TODO pub fn deterministic_k(&self, z: U256) -> S256FieldElementN;
 }
 
 #[cfg(test)]

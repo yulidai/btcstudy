@@ -1,6 +1,6 @@
 use crate::field::FieldElement;
 use super::point::S256Point;
-use super::S256NFieldCreator;
+use super::{S256Curve, S256NFieldCreator};
 use super::signature::Signature;
 use primitive_types::U256;
 
@@ -38,7 +38,7 @@ impl PrivateKey {
         let z = S256NFieldCreator::from_u256(z);
         
         let signature = (z + r * self.secret) / k;
-        if signature.num() > super::n()/2 {
+        if signature.num() > S256Curve::n()/2 {
             return Err("invalid signature because of the signature of BTC should less than N/2"); // the feature is not for secp256k1, just for Bitcoin
         }
 
@@ -49,6 +49,7 @@ impl PrivateKey {
 #[cfg(test)]
 mod tests {
     use super::PrivateKey;
+    use super::super::S256Curve;
     use primitive_types::U256;
 
     #[test]
@@ -59,7 +60,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn create_priv_key_failed() {
-        let _ = PrivateKey::new(super::super::n()).unwrap();
+        let _ = PrivateKey::new(S256Curve::n()).unwrap();
     }
     
     #[test]
@@ -79,7 +80,7 @@ mod tests {
         let priv_key = PrivateKey::new(100u32.into()).unwrap();
 
         let msg_hash = U256::from(200);
-        let k = U256::from(super::super::n());
+        let k = U256::from(S256Curve::n());
         let signature = priv_key.sign(msg_hash, k);
         assert_eq!(signature.err(), Some("failed to sign because of k*G=infinity"));
     }

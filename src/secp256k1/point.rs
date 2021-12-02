@@ -2,17 +2,18 @@ use crate::field::FieldElementCreator;
 use crate::field_ecc::{FieldEccPoint, FieldEccPointCreator, FieldPoint, FieldPointCreator};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
+use super::S256Curve;
 
 #[derive(Clone)]
 pub struct S256Point(FieldEccPoint);
 
 impl S256Point {
     pub fn new(point: FieldPoint) -> Result<Self, String> {
-        let p = super::prime();
-        let field_ecc_point = FieldEccPointCreator::new(p, Self::a(), Self::b());
+        let p = S256Curve::prime();
+        let field_ecc_point = FieldEccPointCreator::new(p, S256Curve::a(), S256Curve::b());
         let ecc_point = field_ecc_point.with_field_point(point)?;
 
-        let n = super::n();
+        let n = S256Curve::n();
         if !( ecc_point.clone() * n ).is_infinity() {
             return Err(format!("invalid n({:x}) for ecc_point({:?})", n, ecc_point));
         }
@@ -28,16 +29,8 @@ impl S256Point {
         &self.0
     }
 
-    pub fn a() -> U256 {
-        U256::zero()
-    }
-    
-    pub fn b() -> U256 {
-        U256::from(7)
-    }
-
     pub fn g() -> Self {
-        let p = super::prime();
+        let p = S256Curve::prime();
         let field_creator = FieldElementCreator(p);
 
         let gx = hex::decode("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798").expect("invalid gx");
@@ -68,7 +61,7 @@ impl Mul<U256> for S256Point {
     type Output = Self;
 
     fn mul(self, coefficient: U256) -> Self {
-        let n = super::n();
+        let n = S256Curve::n();
         let coefficient = coefficient % n;
         let ecc_point_result = self.0 * coefficient;
         
@@ -79,6 +72,7 @@ impl Mul<U256> for S256Point {
 #[cfg(test)]
 mod tests {
     use super::S256Point;
+    use super::super::S256Curve;
 
     #[test]
     fn g_is_not_infinity() {
@@ -89,7 +83,7 @@ mod tests {
     #[test]
     fn g_mul_n_is_infinity() {
         let g = S256Point::g();
-        let n = super::super::n();
+        let n = S256Curve::n();
 
         let result = g * n;
         assert!(result.inner().is_infinity());

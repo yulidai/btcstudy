@@ -27,6 +27,22 @@ impl Signature {
 
         cal_x.num() == self.r.num()
     }
+
+    pub fn der(&self) -> String {
+        let r_der = Self::der_parse_u256(&self.r.num());
+        let s_der = Self::der_parse_u256(&self.s.num());
+        let sig = format!("02{:02x}{}02{:02x}{}", r_der.len()/2, r_der, s_der.len()/2, s_der);
+
+        format!("30{:x}{}", sig.len()/2, sig)
+    }
+
+    pub fn der_parse_u256(num: &U256) -> String {
+        let mut prefix = "";
+        if num.byte(31) > 0x80 { // small order
+            prefix = "00";
+        }
+        format!("{}{:x}", prefix, num)
+    }
 }
 
 #[cfg(test)]
@@ -77,5 +93,17 @@ mod tests {
         let s256_pk_point = S256Point::from_s256_field_element(px, py).unwrap();
 
         assert_eq!(signature.verify(z, s256_pk_point), false);
+    }
+
+    #[test]
+    fn signature_der() {
+        let r = hex::decode("37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6").unwrap();
+        let s = hex::decode("8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec").unwrap();
+        let r = U256::from_big_endian(&r);
+        let s = U256::from_big_endian(&s);
+        let signature = Signature::new(r, s);
+
+        let der = signature.der();
+        assert_eq!(der, "3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec");
     }
 }

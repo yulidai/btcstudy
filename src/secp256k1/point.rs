@@ -43,6 +43,23 @@ impl S256Point {
 
         Self::from_field_point(field_point).expect("invalid G of secp256k1")
     }
+
+    pub fn sec_uncompressed(&self) -> String {
+        match self.0.field_point() {
+            Some(point) => format!("04{:x}{:x}", point.x(), point.y()),
+            None => "infinity".into(),
+        }
+    }
+
+    pub fn sec_compressed(&self) -> String {
+        match self.0.field_point() {
+            None => "infinity".into(),
+            Some(point) => {
+                let prefix = if (point.x().num() % 2).is_zero() { "02" } else { "03" };
+                format!("{}{:x}", prefix, point.x())
+            }
+        }
+    }
 }
 
 impl Add<Self> for S256Point {
@@ -86,5 +103,22 @@ mod tests {
         let result = g * n;
         assert!(result.inner().is_infinity());
     }
-}
 
+    #[test]
+    fn s256_point_sec_uncompressed() {
+        let g_sec = S256Point::g().sec_uncompressed();
+        assert_eq!(&g_sec, "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+    }
+
+    #[test]
+    fn s256_point_sec_compressed_1() {
+        let g_sec = S256Point::g().sec_compressed();
+        assert_eq!(g_sec, "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+    }
+
+    #[test]
+    fn s256_point_sec_compressed_2() {
+        let g_sec = (S256Point::g() * 2.into()).sec_compressed();
+        assert_eq!(g_sec, "03c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5");
+    }
+}

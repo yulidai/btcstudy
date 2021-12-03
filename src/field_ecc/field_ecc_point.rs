@@ -56,19 +56,6 @@ pub struct FieldEccPoint {
 }
 
 impl FieldEccPoint {
-    // pub fn new(field_point: Option<FieldPoint>, a: FieldElement, b: FieldElement) -> Result<Self, String> {
-    //     // EccPoint is infinity if FieldPoint is none
-    //     if let Some(point) = field_point.clone() {
-    //         // y^2 = x^3 + ax + b
-    //         if point.y().pow_u256(2.into()) != point.x().pow_u256(3.into()) + a*point.x() + b {
-    //             let msg = format!("({:x}, {:x}) is not on the curve({},{})", point.x(), point.y(), a, b);
-    //             return Err(msg);
-    //         }
-    //     }
-
-    //     Ok(Self { field_point, a, b })
-    // }
-
     pub fn is_infinity(&self) -> bool {
         self.field_point.is_none()
     }

@@ -1,4 +1,5 @@
 use primitive_types::U256;
+use crate::util;
 
 const BASE: usize = 58;
 const BASE58_ALPHABET: [u8; 58] = *b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -41,6 +42,14 @@ pub fn encode_bytes(bytes: &[u8]) -> String {
 
     result.reverse();
     String::from_utf8(result).unwrap()
+}
+
+pub fn ecode_bytes_checksum(bytes: &[u8]) -> String {
+    let mut checksum = util::hash::hash256(bytes)[..4].to_vec();
+    let mut bytes = bytes.to_vec();
+    bytes.append(&mut checksum);
+
+    encode_bytes(&bytes)
 }
 
 #[cfg(test)]

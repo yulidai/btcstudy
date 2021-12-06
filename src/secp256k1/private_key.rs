@@ -1,5 +1,6 @@
 use super::{S256Curve, S256FieldElementN, S256FieldElementNCreator, S256Point, Signature};
 use primitive_types::U256;
+use crate::util::base58;
 
 pub struct PrivateKey {
     secret: S256FieldElementN,
@@ -40,6 +41,24 @@ impl PrivateKey {
         }
 
         Ok(Signature::new(r.num(), signature.num()))
+    }
+
+    pub fn wif(&self, compressed: bool, test_net: bool) -> String {
+        let mut secret_bytes = [0u8; 32];
+        self.secret.num().to_big_endian(&mut secret_bytes);
+
+        let prefix = if test_net { 0xefu8 } else { 0x80u8 };
+        let suffix = if compressed { Some(1u8) } else { None };
+
+        let mut result = [prefix].to_vec();
+        println!("result of wif: {:?}", hex::encode(&result));
+        result.append(&mut secret_bytes.to_vec());
+        if let Some(suffix) = suffix {
+            result.push(suffix);
+        }
+        println!("result of wif: {:?}", hex::encode(&result));
+
+        base58::ecode_bytes_checksum(&result)
     }
 
     //TODO pub fn deterministic_k(&self, z: U256) -> S256FieldElementN;
@@ -92,5 +111,29 @@ mod tests {
         let k = U256::from(300);
         let signature = priv_key.sign(msg_hash, k);
         assert_eq!(signature.err(), Some("invalid signature because of the signature of BTC should less than N/2"));
+    }
+
+    #[test]
+    fn priv_key_wif_1() {
+        let sk = PrivateKey::new(5003.into()).unwrap();
+        let wif = sk.wif(true, true);
+        assert_eq!(wif, "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8rFTv2sfUK");
+    }
+
+    #[test]
+    fn s256_point_wif_2() {
+        let sk = U256::from(2021);
+        let sk = sk.pow(5.into());
+        let sk = PrivateKey::new(sk).unwrap();
+        let wif = sk.wif(false, true);
+        assert_eq!(wif, "91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4kvjpWAxgzczjbCwxic");
+    }
+
+    #[test]
+    fn s256_point_wif_3() {
+        let sk = U256::from_str_radix("54321deadbeef", 16).unwrap();
+        let sk = PrivateKey::new(sk).unwrap();
+        let wif = sk.wif(true, false);
+        assert_eq!(wif, "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a");
     }
 }

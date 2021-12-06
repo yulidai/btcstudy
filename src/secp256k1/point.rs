@@ -1,4 +1,5 @@
 use crate::field_ecc::{FieldEccPoint, FieldEccPointCreator, FieldPoint, FieldPointCreator};
+use crate::util::{base58, hash};
 use primitive_types::U256;
 use std::ops::{Add, Mul};
 use super::{S256Curve, S256FieldElementP, S256FieldElementPCreator};
@@ -74,21 +75,58 @@ impl S256Point {
         Self::from_field_point(field_point).expect("invalid G of secp256k1")
     }
 
-    pub fn sec_uncompressed(&self) -> String {
+    pub fn sec_uncompressed(&self) -> Option<Vec<u8>> {
         match self.0.field_point() {
-            Some(point) => format!("04{:x}{:x}", point.x(), point.y()),
-            None => "infinity".into(),
+            Some(point) => {
+                let mut x_bytes = [0u8; 32];
+                let mut y_bytes = [0u8; 32];
+                point.x().num().to_big_endian(&mut x_bytes);
+                point.y().num().to_big_endian(&mut y_bytes);
+
+                let mut result = vec![4u8];
+                result.append(&mut x_bytes.to_vec());
+                result.append(&mut y_bytes.to_vec());
+
+                Some(result)
+            },
+            None => None,
         }
     }
 
-    pub fn sec_compressed(&self) -> String {
+    pub fn sec_compressed(&self) -> Option<Vec<u8>> {
         match self.0.field_point() {
-            None => "infinity".into(),
+            None => None,
             Some(point) => {
-                let prefix = if (point.x().num() % 2).is_zero() { "02" } else { "03" };
-                format!("{}{:x}", prefix, point.x())
+                let mut x_bytes = [0u8; 32];
+                point.x().num().to_big_endian(&mut x_bytes);
+
+                let mut result = if (point.x().num() % 2).is_zero() { vec![2u8] } else { vec![3u8] };
+                result.append(&mut x_bytes.to_vec());
+
+                Some(result)
             }
         }
+    }
+
+    pub fn hash160(&self, compressed: bool) -> Vec<u8> {
+        let sec_bytes = match compressed {
+            true => self.sec_compressed(),
+            false => self.sec_uncompressed(),
+        }.unwrap();
+        let result = hash::hash160(&sec_bytes);
+
+        result
+    }
+
+    pub fn address(&self, compressed: bool, test_net: bool) -> String {
+        let mut h160 = self.hash160(compressed);
+        println!("h160: {:?}", h160);
+        let prefix = if test_net { 0x6fu8 } else { 0x00u8 };
+
+        let mut bytes = [prefix].to_vec();
+        bytes.append(&mut h160);
+
+        base58::ecode_bytes_checksum(&bytes)
     }
 }
 
@@ -118,6 +156,7 @@ impl Mul<U256> for S256Point {
 mod tests {
     use super::S256Point;
     use super::super::{S256Curve, PrivateKey};
+    use primitive_types::U256;
 
     #[test]
     fn g_is_not_infinity() {
@@ -136,28 +175,26 @@ mod tests {
 
     #[test]
     fn s256_point_sec_uncompressed() {
-        let g_sec = S256Point::g().sec_uncompressed();
-        assert_eq!(&g_sec, "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+        let g_sec = S256Point::g().sec_uncompressed().unwrap();
+        assert_eq!(hex::encode(g_sec), "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
     }
 
     #[test]
     fn s256_point_sec_compressed_1() {
-        let g_sec = S256Point::g().sec_compressed();
-        assert_eq!(g_sec, "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+        let g_sec = S256Point::g().sec_compressed().unwrap();
+        assert_eq!(hex::encode(g_sec), "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
     }
 
     #[test]
     fn s256_point_sec_compressed_2() {
-        let g_sec = (S256Point::g() * 2.into()).sec_compressed();
-        assert_eq!(g_sec, "03c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5");
+        let g_sec = (S256Point::g() * 2.into()).sec_compressed().unwrap();
+        assert_eq!(hex::encode(g_sec), "03c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5");
     }
 
     #[test]
     fn s256_point_parse_sec_uncompressed() {
         let g = S256Point::g();
-        let g_sec = g.sec_uncompressed();
-        let g_sec = hex::decode(g_sec).unwrap();
-
+        let g_sec = g.sec_uncompressed().unwrap();
         let g_parsed = S256Point::parse(&g_sec).unwrap();
         assert_eq!(g, g_parsed);
     }
@@ -165,8 +202,7 @@ mod tests {
     #[test]
     fn s256_point_parse_sec_compressed() {
         let g = S256Point::g();
-        let g_sec = g.sec_compressed();
-        let g_sec = hex::decode(g_sec).unwrap();
+        let g_sec = g.sec_compressed().unwrap();
 
         let g_parsed = S256Point::parse(&g_sec).unwrap();
         assert_eq!(g, g_parsed);
@@ -176,7 +212,34 @@ mod tests {
     fn s256_point_parse_1() {
         let sk = PrivateKey::new(5001.into()).unwrap();
         let pk = sk.pk_point();
-        let pk_sec = pk.sec_compressed();
-        assert_eq!(pk_sec, "0357a4f368868a8a6d572991e484e664810ff14c05c0fa023275251151fe0e53d1");
+        let pk_sec = pk.sec_compressed().unwrap();
+        assert_eq!(hex::encode(pk_sec), "0357a4f368868a8a6d572991e484e664810ff14c05c0fa023275251151fe0e53d1");
+    }
+
+    #[test]
+    fn s256_point_address_1() {
+        let sk = PrivateKey::new(5002.into()).unwrap();
+        let pk = sk.pk_point();
+        let address = pk.address(false, true);
+        assert_eq!(address, "mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA");
+    }
+
+    #[test]
+    fn s256_point_address_2() {
+        let sk = U256::from(2020);
+        let sk = sk.pow(5.into());
+        let sk = PrivateKey::new(sk).unwrap();
+        let pk = sk.pk_point();
+        let address = pk.address(true, true);
+        assert_eq!(address, "mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH");
+    }
+
+    #[test]
+    fn s256_point_address_3() {
+        let sk = U256::from_str_radix("12345deadbeef", 16).unwrap();
+        let sk = PrivateKey::new(sk).unwrap();
+        let pk = sk.pk_point();
+        let address = pk.address(true, false);
+        assert_eq!(address, "1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1");
     }
 }

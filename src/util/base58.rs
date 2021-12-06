@@ -31,9 +31,10 @@ pub fn encode_bytes(bytes: &[u8]) -> String {
     }
     // add leading zeros
     for byte in bytes {
-        if *byte == 0u8 {
-            result.push(0);
+        if *byte != 0u8 {
+            break;
         }
+        result.push(0);
     }
     // convert into char of alphabet
     for byte in &mut result {

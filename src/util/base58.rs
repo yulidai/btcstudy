@@ -1,29 +1,46 @@
 use primitive_types::U256;
-use std::convert::TryFrom;
 
-const BASE58_ALPHABET: &'static str = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const BASE: usize = 58;
+const BASE58_ALPHABET: [u8; 58] = *b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-pub fn encode(mut num: U256) -> String {
-    let leading_zeros = usize::try_from(num.leading_zeros()).expect("failed to convert u32 into usize within base58") / 8;
-    let base = U256::from(58);
-    let base58_alphabet = BASE58_ALPHABET.as_bytes();
+pub fn encode(num: U256) -> String {
+    let mut bytes = [0u8; 32];
+    num.to_big_endian(&mut bytes);
 
-    let mut result_tmp = String::new();
-    while !num.is_zero() {
-        let (divisor, remainder) = num.div_mod(base);
-        let index = remainder.as_usize();
-        if index >= base58_alphabet.len() {
-            panic!("invalid panic when encode into base58");
+    encode_bytes(&bytes)
+}
+
+pub fn encode_bytes(bytes: &[u8]) -> String {
+    let mut result = Vec::<u8>::new();
+
+    // u8 to base58
+    for byte in bytes {
+        let mut carry = *byte as usize;
+        // recalculate with new byte
+        for byte in &mut result {
+            carry += (*byte as usize) << 8;
+            *byte = (carry % BASE) as u8;
+            carry = carry / BASE;
         }
-        result_tmp.push(base58_alphabet[index].into());
-        num = divisor;
+        // extend result.length
+        while carry > 0 {
+            result.push( (carry % BASE) as u8);
+            carry /= BASE;
+        }
     }
-    let result_tmp = result_tmp.chars().rev().collect::<String>();
+    // add leading zeros
+    for byte in bytes {
+        if *byte == 0u8 {
+            result.push(0);
+        }
+    }
+    // convert into char of alphabet
+    for byte in &mut result {
+        *byte = BASE58_ALPHABET[*byte as usize];
+    }
 
-    let mut result = String::from("1").repeat(leading_zeros);
-    result.push_str(result_tmp.as_str());
-
-    result
+    result.reverse();
+    String::from_utf8(result).unwrap()
 }
 
 #[cfg(test)]
@@ -45,9 +62,23 @@ mod tests {
     }
 
     #[test]
-    fn base58_encode_3() {
-        let num = hex::decode("c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6").unwrap();
-        let num = U256::from_big_endian(&num);
-        assert_eq!(super::encode(num), "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7");
+    fn base58_encode_bytes_1() {
+        let bytes = hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap();
+        let result = super::encode_bytes(&bytes);
+        assert_eq!(result, "9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6");
+    }
+
+    #[test]
+    fn base58_encode_bytes_2() {
+        let bytes = hex::decode("eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c").unwrap();
+        let result = super::encode_bytes(&bytes);
+        assert_eq!(result, "4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd");
+    }
+
+    #[test]
+    fn base58_encode_bytes_3() {
+        let bytes = hex::decode("c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6").unwrap();
+        let result = super::encode_bytes(&bytes);
+        assert_eq!(result, "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7");
     }
 }

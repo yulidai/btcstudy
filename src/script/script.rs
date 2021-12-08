@@ -67,7 +67,7 @@ impl Script {
         let mut result = Vec::new();
         for cmd in &self.cmds {
             match cmd {
-                CommandElement::Op(op) => result.push(*op),
+                CommandElement::Op(op) => result.push(op.value()),
                 CommandElement::Data(data) => {
                     let len = data.len();
                     if len <= 75 { // op

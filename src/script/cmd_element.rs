@@ -1,8 +1,9 @@
 use crate::util::math;
+use super::Opcode;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CommandElement {
-    Op(u8),
+    Op(Opcode),
     Data(Vec<u8>), // length <= 520
 }
 
@@ -14,8 +15,13 @@ impl CommandElement {
             return Err("cannot convert empty bytes into CommandElement");
         }
         if len == 1 {
-            let result = (Self::Op(bytes[0]), 1);
-            return Ok(result); //TODO check bytes[0] is a valid op_code
+            match Opcode::from_u8(bytes[0]) {
+                Some(code) => {
+                    let result = (Self::Op(code), 1);
+                    return Ok(result);
+                },
+                None => return Err("invalid opcode"),
+            };
         }
 
         let mut index = 0;

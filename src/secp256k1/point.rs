@@ -120,7 +120,6 @@ impl S256Point {
 
     pub fn address(&self, compressed: bool, test_net: bool) -> String {
         let mut h160 = self.hash160(compressed);
-        println!("h160: {:?}", h160);
         let prefix = if test_net { 0x6fu8 } else { 0x00u8 };
 
         let mut bytes = [prefix].to_vec();

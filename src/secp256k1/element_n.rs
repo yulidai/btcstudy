@@ -22,7 +22,7 @@ impl S256FieldElementNCreator {
 }
 
 // element
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct S256FieldElementN(FieldElement);
 
 impl S256FieldElementN {

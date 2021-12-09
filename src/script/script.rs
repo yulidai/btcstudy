@@ -109,7 +109,7 @@ impl Script {
                                 (Some(pk), Some(sig)) => operator::check_signature(pk, sig, z),
                                 _ => false
                             };
-                            let stack_result = if result { vec![1] } else { vec![0] };
+                            let stack_result = if result { vec![1] } else { vec![] };
                             stack.push(stack_result);
 
                             result
@@ -124,7 +124,7 @@ impl Script {
         }
 
         match stack.pop() {
-            Some(element) => element.len() > 0 && element[0] != 0, //TODO check again
+            Some(element) => element.len() > 0, // 0 is empty vec in stack
             None => false,
         }
     }

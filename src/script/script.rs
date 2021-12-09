@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 use std::ops::Add;
-use super::CommandElement;
+use super::{CommandElement, Opcode, operator};
 use crate::util::varint;
+use primitive_types::U256;
 
 #[derive(Debug)]
 pub struct Script {
@@ -92,5 +93,78 @@ impl Script {
         }
 
         Ok(result)
+    }
+
+    pub fn evaluate(&self, z: U256) -> bool {
+        let cmds = self.cmds.clone();
+        let mut stack = Vec::<Vec<u8>>::new();
+        for cmd in cmds {
+            match cmd {
+                CommandElement::Op(op) => {
+                    let success = match op {
+                        Opcode::OpChecksig => {
+                            let pk = stack.pop();
+                            let sig = stack.pop();
+                            let result = match (pk, sig) {
+                                (Some(pk), Some(sig)) => operator::check_signature(pk, sig, z),
+                                _ => false
+                            };
+                            let stack_result = if result { vec![1] } else { vec![0] };
+                            stack.push(stack_result);
+
+                            result
+                        },
+                    };
+                    if !success {
+                        return false;
+                    }
+                }
+                CommandElement::Data(data) => stack.push(data),
+            }
+        }
+
+        match stack.pop() {
+            Some(element) => element.len() > 0 && element[0] != 0, //TODO check again
+            None => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Script;
+    use crate::script::{CommandElement, Opcode};
+    use primitive_types::U256;
+
+    #[test]
+    fn script_evaluate_success() {
+        let sec = CommandElement::Data(hex::decode("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34").unwrap());
+        let op = CommandElement::Op(Opcode::OpChecksig);
+        let script_pubkey = Script::new(vec![sec, op]);
+
+        let sig = CommandElement::Data(hex::decode("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6").unwrap());
+        let script_sig = Script::new(vec![sig]);
+
+        let combined_script = script_sig + script_pubkey;
+
+        let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
+        let result = combined_script.evaluate(z);
+        assert!(result);
+    }
+
+    #[test]
+    fn script_evaluate_failed() {
+        let sec = CommandElement::Data(hex::decode("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34").unwrap());
+        let op = CommandElement::Op(Opcode::OpChecksig);
+        let script_pubkey = Script::new(vec![sec, op]);
+
+        let sig = CommandElement::Data(hex::decode("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6").unwrap());
+        let script_sig = Script::new(vec![sig]);
+
+        let combined_script = script_sig + script_pubkey;
+
+        let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3e").unwrap());
+        let result = combined_script.evaluate(z);
+        assert!(!result);
     }
 }

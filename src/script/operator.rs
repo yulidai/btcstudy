@@ -1,4 +1,5 @@
 use crate::secp256k1::{S256Point, Signature};
+use crate::util::varint;
 use primitive_types::U256;
 
 pub fn check_signature(pk: Vec<u8>, sig: Vec<u8>, z: U256) -> bool {
@@ -18,4 +19,13 @@ pub fn check_signature(pk: Vec<u8>, sig: Vec<u8>, z: U256) -> bool {
     };
     
     sig.verify(z, pk)
+}
+
+pub fn decode_num(bytes: &[u8]) -> Result<u64, &'static str> {
+    let (num, used) = varint::decode(bytes)?;
+    if (used as usize) != bytes.len() {
+        Err("invalid num because all of bytes must be used")
+    } else {
+        Ok(num)
+    }
 }

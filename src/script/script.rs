@@ -105,6 +105,70 @@ impl Script {
                             stack.push(vec![]);
                             true
                         },
+                        Opcode::Op1 => {
+                            stack.push(vec![1]);
+                            true
+                        },
+                        Opcode::Op2 => {
+                            stack.push(vec![2]);
+                            true
+                        },
+                        Opcode::Op3 => {
+                            stack.push(vec![3]);
+                            true
+                        },
+                        Opcode::Op4 => {
+                            stack.push(vec![4]);
+                            true
+                        },
+                        Opcode::Op5 => {
+                            stack.push(vec![5]);
+                            true
+                        },
+                        Opcode::Op6 => {
+                            stack.push(vec![6]);
+                            true
+                        },
+                        Opcode::Op7 => {
+                            stack.push(vec![7]);
+                            true
+                        },
+                        Opcode::Op8 => {
+                            stack.push(vec![8]);
+                            true
+                        },
+                        Opcode::Op9 => {
+                            stack.push(vec![9]);
+                            true
+                        },
+                        Opcode::Op10 => {
+                            stack.push(vec![10]);
+                            true
+                        },
+                        Opcode::Op11 => {
+                            stack.push(vec![11]);
+                            true
+                        },
+                        Opcode::Op12 => {
+                            stack.push(vec![12]);
+                            true
+                        },
+                        Opcode::Op13 => {
+                            stack.push(vec![13]);
+                            true
+                        },
+                        Opcode::Op14 => {
+                            stack.push(vec![14]);
+                            true
+                        },
+                        Opcode::Op15 => {
+                            stack.push(vec![15]);
+                            true
+                        },
+                        Opcode::Op16 => {
+                            stack.push(vec![16]);
+                            true
+                        },
                         Opcode::OpDup => {
                             match stack.pop() {
                                 None => false,
@@ -115,12 +179,41 @@ impl Script {
                                 }
                             }
                         },
+                        Opcode::OpEqual => {
+                            let left = stack.pop();
+                            let right = stack.pop();
+                            let result = match (left, right) {
+                                (Some(left), Some(right)) => left == right,
+                                _ => false,
+                            };
+                            if result { stack.push(vec![1]) } else { stack.push(vec![]) } // 0 is empty bytes
+
+                            result
+                        },
                         Opcode::OpEqualverify => {
                             let left = stack.pop();
                             let right = stack.pop();
                             match (left, right) {
                                 (Some(left), Some(right)) => left == right,
                                 _ => false,
+                            }
+                        },
+                        Opcode::OpAdd => {
+                            let left = stack.pop();
+                            let right = stack.pop();
+                            match (left, right) {
+                                (Some(left), Some(right)) => {
+                                    let left = operator::decode_num(&left);
+                                    let right = operator::decode_num(&right);
+                                    match (left, right) {
+                                        (Ok(left), Ok(right)) => {
+                                            stack.push(varint::encode(left+right));
+                                            true
+                                        },
+                                        _ => false
+                                    }
+                                },
+                                _ => false
                             }
                         },
                         Opcode::OpHash160 => {
@@ -209,6 +302,19 @@ mod tests {
         let combined_script = script_sig + script_pubkey;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
         let result = combined_script.evaluate(z);
+        assert!(result);
+    }
+
+    #[test]
+    fn script_evaluate_add_euqal() {
+        let script_pubkey = hex::decode("55935987").unwrap();
+        let script_pubkey = Script::parse_raw(&script_pubkey).unwrap();
+
+        let script_sig = hex::decode("54").unwrap();
+        let script_sig = Script::parse_raw(&script_sig).unwrap();
+
+        let combined_script = script_sig + script_pubkey;
+        let result = combined_script.evaluate(U256::zero());
         assert!(result);
     }
 }

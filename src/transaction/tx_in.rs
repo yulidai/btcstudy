@@ -33,6 +33,16 @@ impl TxIn {
 
         Ok((result, index))
     }
+
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        let mut result = Vec::new();
+        result.append(&mut self.prev_tx.to_vec());
+        result.append(&mut self.prev_index.serialize().to_vec());
+        result.append(&mut self.script.serialize()?);
+        result.append(&mut self.sequence.serialize().to_vec());
+
+        Ok(result)
+    }
 }
 
 pub type Sequence = Version;

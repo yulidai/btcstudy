@@ -24,6 +24,14 @@ impl TxOut {
         let result = Self { amount, script };
         Ok((result, index))
     }
+
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        let mut result = Vec::new();
+        result.append(&mut self.amount.to_le_bytes().to_vec());
+        result.append(&mut self.script.serialize()?);
+
+        Ok(result)
+    }
 }
 
 

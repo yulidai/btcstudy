@@ -69,7 +69,7 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, z: U256) -> Result<bool, Error
         },
         Opcode::OpHash160 => {
             let ele = stack.pop()?;
-            let ele = hash::hash160(&ele);
+            let ele = hash::hash160(&ele).to_vec();
             stack.push(ele);
         },
         Opcode::OpChecksig => {

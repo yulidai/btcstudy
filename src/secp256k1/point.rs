@@ -108,18 +108,16 @@ impl S256Point {
         }
     }
 
-    pub fn hash160(&self, compressed: bool) -> Vec<u8> {
+    pub fn hash160(&self, compressed: bool) -> [u8; 20] {
         let sec_bytes = match compressed {
             true => self.sec_compressed(),
             false => self.sec_uncompressed(),
         }.unwrap();
-        let result = hash::hash160(&sec_bytes);
-
-        result
+        hash::hash160(&sec_bytes)
     }
 
     pub fn address(&self, compressed: bool, test_net: bool) -> String {
-        let mut h160 = self.hash160(compressed);
+        let mut h160 = self.hash160(compressed).to_vec();
         let prefix = if test_net { 0x6fu8 } else { 0x00u8 };
 
         let mut bytes = [prefix].to_vec();

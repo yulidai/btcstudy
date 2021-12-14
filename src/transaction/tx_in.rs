@@ -6,7 +6,7 @@ use super::{Error, Version};
 pub struct TxIn {
     prev_tx: Hash256Value,
     prev_index: PrevIndex,
-    script_sig: Option<Script>,
+    script: Script,
     sequence: Sequence,
 }
 
@@ -29,10 +29,9 @@ impl TxIn {
         index = math::check_range_add_with_max(index, 4, len)?;
         let sequence = Sequence::parse(&bytes[(index-4)..index])?;
 
-        let script_sig = Some(script);
-        let tx_in = Self { prev_tx, prev_index, script_sig, sequence };
+        let result = Self { prev_tx, prev_index, script, sequence };
 
-        Ok((tx_in, index))
+        Ok((result, index))
     }
 }
 

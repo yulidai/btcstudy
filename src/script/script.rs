@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::ops::Add;
 use super::{CommandElement, operator, Stack, Error};
 use crate::util::varint;
@@ -66,29 +65,7 @@ impl Script {
     fn raw_serialize(&self) -> Result<Vec<u8>, Error> {
         let mut result = Vec::new();
         for cmd in &self.cmds {
-            match cmd {
-                CommandElement::Op(op) => result.push(op.value()),
-                CommandElement::Data(data) => {
-                    let len = data.len();
-                    if len <= 75 { // op
-                        let len = u8::try_from(len).expect("len is out of range of u8");
-                        result.push(len);
-                    } else if len <= 255 {
-                        result.push(76u8);
-                        let len = u8::try_from(len).expect("len is out of range of u8");
-                        result.push(len);
-                    } else if len <= 520 {
-                        result.push(77u8);
-                        let len = u16::try_from(len).expect("len is out of range of u16");
-                        let len_bytes = len.to_le_bytes();
-                        result.push(len_bytes[0]);
-                        result.push(len_bytes[1]);
-                    } else {
-                        return Err(Error::TooLongBytes);
-                    }
-                    result.append(&mut data.clone());
-                }
-            }
+            cmd.serialize(&mut result)?;
         }
 
         Ok(result)

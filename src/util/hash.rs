@@ -1,6 +1,9 @@
 use sha2::{Sha256};
 use ripemd160::{Ripemd160, Digest};
 
+pub type Hash256Value = [u8; 32];
+pub type Hash160Value = [u8; 20];
+
 pub fn sha256(bytes: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(bytes);

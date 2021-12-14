@@ -23,7 +23,7 @@ pub fn encode(num: u64) -> Vec<u8> {
     result
 }
 
-pub fn decode(bytes: &[u8]) -> Result<(u64, u8), &'static str> {
+pub fn decode(bytes: &[u8]) -> Result<(usize, u8), &'static str> {
     let total_length = bytes.len();
     if total_length == 0 {
         return Err("cannot decode empty bytes into u64 within varint::decode");
@@ -34,19 +34,19 @@ pub fn decode(bytes: &[u8]) -> Result<(u64, u8), &'static str> {
         math::check_range_add(0, 2, total_length)?;
         let num = bytes[1..3].try_into().map_err(|_| "faield to convert slice into array within varint::decode")?;
         let num = u16::from_le_bytes(num);
-        (num as u64, 2 + 1)
+        (num as usize, 2 + 1)
     } else if byte == 0xfe {
         math::check_range_add(0, 4, total_length)?;
         let num = bytes[1..5].try_into().map_err(|_| "faield to convert slice into array within varint::decode")?;
         let num = u32::from_le_bytes(num);
-        (num as u64, 4 + 1)
+        (num as usize, 4 + 1)
     } else if byte == 0xff {
         math::check_range_add(0, 8, total_length)?;
         let num = bytes[1..9].try_into().map_err(|_| "faield to convert slice into array within varint::decode")?;
-        let num = u64::from_le_bytes(num);
+        let num = usize::from_le_bytes(num);
         (num, 8 + 1)
     } else {
-        (byte as u64, 1)
+        (byte as usize, 1)
     };
 
     Ok(result)

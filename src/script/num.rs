@@ -1,4 +1,6 @@
 use std::convert::From;
+use super::Error;
+use std::ops::Add;
 
 pub struct Num(i64);
 
@@ -35,7 +37,7 @@ impl Num {
         result
     }
 
-    pub fn decode(mut bytes: Vec<u8>) -> Result<Self, &'static str> {
+    pub fn decode(mut bytes: Vec<u8>) -> Result<Self, Error> {
         if bytes.len() == 0 {
             return Ok(Self(0));
         }
@@ -51,7 +53,7 @@ impl Num {
             for byte in &bytes[1..] {
                 let (new, overflow) = result.overflowing_shl(8);
                 if overflow {
-                    return Err("Num::decode() is overflow");
+                    return Err(Error::NumDecodeOverflow);
                 }
                 result  = new + *byte as i64;
             }
@@ -66,6 +68,14 @@ impl Num {
 
     pub fn value(&self) -> i64 {
         self.0
+    }
+}
+
+impl Add for Num {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Num(self.0 + other.0)
     }
 }
 

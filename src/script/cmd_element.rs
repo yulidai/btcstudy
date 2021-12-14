@@ -1,5 +1,5 @@
 use crate::util::math;
-use super::Opcode;
+use super::{Opcode, Error};
 use std::fmt;
 
 #[derive(Clone)]
@@ -10,10 +10,10 @@ pub enum CommandElement {
 
 impl CommandElement {
     // @return (Self, bytes_used)
-    pub fn parse(bytes: &[u8]) -> Result<(Self, usize), &'static str> {
+    pub fn parse(bytes: &[u8]) -> Result<(Self, usize), Error> {
         let len = bytes.len();
         if len == 0 {
-            return Err("cannot convert empty bytes into CommandElement");
+            return Err(Error::EmptyBytes);
         }
 
         let mut index = 0;
@@ -29,7 +29,7 @@ impl CommandElement {
                 index = math::check_range_add(index, 2, len)?;
                 payload_len = (bytes[index-1] as usize) + (bytes[index] as usize) << 8; // little_endian
                 if payload_len > 520 {
-                    return Err("data.len() should <= 520 within Script::parse()");
+                    return Err(Error::TooLongBytes);
                 }
             },
             _ => {
@@ -38,7 +38,7 @@ impl CommandElement {
                         let result = (Self::Op(code), 1);
                         return Ok(result);
                     },
-                    None => return Err("invalid opcode"),
+                    None => return Err(Error::InvalidOpcode),
                 };
             }
         }

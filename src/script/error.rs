@@ -12,6 +12,11 @@ pub enum Error {
     // Num
     NumDecodeOverflow,
 
+    // Secp256k1
+    // TODO: move into scecp256k1 module
+    InvalidPublicKey,
+    InvalidSignature,
+
     // Other
     Unknown(String),
 }

@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::ops::Add;
-use super::{CommandElement, Opcode, operator};
-use crate::util::{varint, hash};
+use super::{CommandElement, operator, Stack, Error};
+use crate::util::varint;
 use primitive_types::U256;
 
 #[derive(Debug)]
@@ -26,11 +26,11 @@ impl Script {
         Self { cmds }
     }
 
-    pub fn parse(bytes: &[u8]) -> Result<Self, &'static str> {
+    pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         let (length, used) = varint::decode(bytes)?;
         let total = length + used as u64;
         if total != bytes.len() as u64 {
-            return Err("bytes.len() is not eq to needed");
+            return Err(Error::InvalidBytes);
         }
 
         let used = used as usize;
@@ -38,7 +38,7 @@ impl Script {
     }
 
     // without len prefix
-    pub fn parse_raw(bytes: &[u8]) -> Result<Self, &'static str> {
+    pub fn parse_raw(bytes: &[u8]) -> Result<Self, Error> {
         let mut cmds = Vec::new();
 
         let mut index = 0;
@@ -53,7 +53,7 @@ impl Script {
         Ok(Self { cmds })
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, &'static str> {
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         let mut payload = self.raw_serialize()?;
         let len = payload.len() as u64;
 
@@ -63,7 +63,7 @@ impl Script {
         Ok(result)
     }
 
-    fn raw_serialize(&self) -> Result<Vec<u8>, &'static str> {
+    fn raw_serialize(&self) -> Result<Vec<u8>, Error> {
         let mut result = Vec::new();
         for cmd in &self.cmds {
             match cmd {
@@ -84,7 +84,7 @@ impl Script {
                         result.push(len_bytes[0]);
                         result.push(len_bytes[1]);
                     } else {
-                        return Err("too long an cmd");
+                        return Err(Error::TooLongBytes);
                     }
                     result.append(&mut data.clone());
                 }
@@ -94,163 +94,17 @@ impl Script {
         Ok(result)
     }
 
-    pub fn evaluate(&self, z: U256) -> bool {
+    pub fn evaluate(&self, z: U256) -> Result<bool, Error> {
         let cmds = self.cmds.clone();
-        let mut stack = Vec::<Vec<u8>>::new();
+        let mut stack = Stack::new();
         for cmd in cmds {
-            match cmd {
-                CommandElement::Op(op) => {
-                    let success = match op {
-                        Opcode::Op0 => {
-                            stack.push(vec![]);
-                            true
-                        },
-                        Opcode::Op1 => {
-                            stack.push(vec![1]);
-                            true
-                        },
-                        Opcode::Op2 => {
-                            stack.push(vec![2]);
-                            true
-                        },
-                        Opcode::Op3 => {
-                            stack.push(vec![3]);
-                            true
-                        },
-                        Opcode::Op4 => {
-                            stack.push(vec![4]);
-                            true
-                        },
-                        Opcode::Op5 => {
-                            stack.push(vec![5]);
-                            true
-                        },
-                        Opcode::Op6 => {
-                            stack.push(vec![6]);
-                            true
-                        },
-                        Opcode::Op7 => {
-                            stack.push(vec![7]);
-                            true
-                        },
-                        Opcode::Op8 => {
-                            stack.push(vec![8]);
-                            true
-                        },
-                        Opcode::Op9 => {
-                            stack.push(vec![9]);
-                            true
-                        },
-                        Opcode::Op10 => {
-                            stack.push(vec![10]);
-                            true
-                        },
-                        Opcode::Op11 => {
-                            stack.push(vec![11]);
-                            true
-                        },
-                        Opcode::Op12 => {
-                            stack.push(vec![12]);
-                            true
-                        },
-                        Opcode::Op13 => {
-                            stack.push(vec![13]);
-                            true
-                        },
-                        Opcode::Op14 => {
-                            stack.push(vec![14]);
-                            true
-                        },
-                        Opcode::Op15 => {
-                            stack.push(vec![15]);
-                            true
-                        },
-                        Opcode::Op16 => {
-                            stack.push(vec![16]);
-                            true
-                        },
-                        Opcode::OpDup => {
-                            match stack.pop() {
-                                None => false,
-                                Some(element) => {
-                                    stack.push(element.clone());
-                                    stack.push(element);
-                                    true
-                                }
-                            }
-                        },
-                        Opcode::OpEqual => {
-                            let left = stack.pop();
-                            let right = stack.pop();
-                            let result = match (left, right) {
-                                (Some(left), Some(right)) => left == right,
-                                _ => false,
-                            };
-                            if result { stack.push(vec![1]) } else { stack.push(vec![]) } // 0 is empty bytes
-
-                            result
-                        },
-                        Opcode::OpEqualverify => {
-                            let left = stack.pop();
-                            let right = stack.pop();
-                            match (left, right) {
-                                (Some(left), Some(right)) => left == right,
-                                _ => false,
-                            }
-                        },
-                        Opcode::OpAdd => {
-                            let left = stack.pop();
-                            let right = stack.pop();
-                            match (left, right) {
-                                (Some(left), Some(right)) => {
-                                    let left = operator::decode_num(&left);
-                                    let right = operator::decode_num(&right);
-                                    match (left, right) {
-                                        (Ok(left), Ok(right)) => {
-                                            stack.push(varint::encode(left+right));
-                                            true
-                                        },
-                                        _ => false
-                                    }
-                                },
-                                _ => false
-                            }
-                        },
-                        Opcode::OpHash160 => {
-                            match stack.pop() {
-                                None => false,
-                                Some(ele) => {
-                                    let ele = hash::hash160(&ele);
-                                    stack.push(ele);
-                                    true
-                                }
-                            }
-                        },
-                        Opcode::OpChecksig => {
-                            let pk = stack.pop();
-                            let sig = stack.pop();
-                            let result = match (pk, sig) {
-                                (Some(pk), Some(sig)) => operator::check_signature(pk, sig, z),
-                                _ => false
-                            };
-                            let stack_result = if result { vec![1] } else { vec![] };
-                            stack.push(stack_result);
-
-                            result
-                        },
-                    };
-                    if !success {
-                        return false;
-                    }
-                }
-                CommandElement::Data(data) => stack.push(data),
+            if operator::evaluate_command(cmd, &mut stack, z)? == false {
+                return Ok(false);
             }
         }
 
-        match stack.pop() {
-            Some(element) => element.len() > 0, // 0 is empty vec in stack
-            None => false,
-        }
+        let ele = stack.pop()?;
+        Ok(ele.len() > 0) // 0 is empty vec in stack
     }
 }
 
@@ -272,7 +126,7 @@ mod tests {
         let combined_script = script_sig + script_pubkey;
 
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
-        let result = combined_script.evaluate(z);
+        let result = combined_script.evaluate(z).unwrap();
         assert!(result);
     }
 
@@ -287,7 +141,7 @@ mod tests {
 
         let combined_script = script_sig + script_pubkey;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3e").unwrap());
-        let result = combined_script.evaluate(z);
+        let result = combined_script.evaluate(z).unwrap();
         assert!(!result);
     }
 
@@ -301,7 +155,7 @@ mod tests {
 
         let combined_script = script_sig + script_pubkey;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
-        let result = combined_script.evaluate(z);
+        let result = combined_script.evaluate(z).unwrap();
         assert!(result);
     }
 
@@ -314,7 +168,7 @@ mod tests {
         let script_sig = Script::parse_raw(&script_sig).unwrap();
 
         let combined_script = script_sig + script_pubkey;
-        let result = combined_script.evaluate(U256::zero());
+        let result = combined_script.evaluate(U256::zero()).unwrap();
         assert!(result);
     }
 }

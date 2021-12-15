@@ -1,6 +1,6 @@
 use super::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Version(u32);
 
 impl Version {

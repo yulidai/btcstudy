@@ -3,7 +3,7 @@ use super::{CommandElement, operator, Stack, Error};
 use crate::util::varint;
 use primitive_types::U256;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Script {
     cmds: Vec<CommandElement>
 }

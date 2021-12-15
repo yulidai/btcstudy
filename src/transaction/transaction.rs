@@ -2,12 +2,12 @@ use std::convert::TryFrom;
 use super::{Error, TxIn, TxOut, Version, LockTime};
 use crate::util::{math, varint};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Transaction {
-    version: Version,
-    inputs: Vec<TxIn>,
-    outputs: Vec<TxOut>,
-    locktime: LockTime,
+    pub version: Version,
+    pub inputs: Vec<TxIn>,
+    pub outputs: Vec<TxOut>,
+    pub locktime: LockTime,
 }
 
 impl Transaction {

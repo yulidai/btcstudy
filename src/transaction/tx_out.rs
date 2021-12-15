@@ -2,7 +2,7 @@ use crate::util::math;
 use crate::script::Script;
 use super::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TxOut {
     amount: u64,
     script: Script,

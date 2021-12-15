@@ -2,7 +2,7 @@ use crate::util::{math, hash::Hash256Value};
 use crate::script::Script;
 use super::{Error, Version};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TxIn {
     prev_tx: Hash256Value,
     prev_index: PrevIndex,

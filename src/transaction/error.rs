@@ -6,6 +6,8 @@ use hex::FromHexError;
 #[derive(Debug)]
 pub enum Error {
     InvalidVersion,
+    InvalidTxIn,
+    InvalidTxFee,
 
     Script(ScriptError),
 

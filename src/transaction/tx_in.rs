@@ -1,6 +1,7 @@
 use crate::util::{math, hash::Hash256Value};
 use crate::script::Script;
-use super::{Error, Version};
+use super::{Error, Version, TxFetcher};
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
 pub struct TxIn {
@@ -19,6 +20,7 @@ impl TxIn {
         index = math::check_range_add_with_max(index, 32, len)?;
         let mut prev_tx: Hash256Value = Default::default();
         prev_tx.copy_from_slice(&bytes[(index-32)..index]);
+        prev_tx.reverse(); // little endian
         // prev_in
         index = math::check_range_add_with_max(index, 4, len)?;
         let prev_index = PrevIndex::parse(&bytes[(index-4)..index])?;
@@ -42,6 +44,15 @@ impl TxIn {
         result.append(&mut self.sequence.serialize().to_vec());
 
         Ok(result)
+    }
+
+    pub fn value(&self, fetcher: &mut TxFetcher, testnet: bool) -> Result<u64, Error> {
+        let tx = fetcher.fetch(&self.prev_tx, testnet, false)?;
+        let prev_index = usize::try_from(self.prev_index.value()).expect("failed convert u32 into usize");
+        if prev_index >= tx.outputs.len() {
+            return Err(Error::InvalidTxIn);
+        }
+        Ok(tx.outputs[prev_index].amount())
     }
 }
 

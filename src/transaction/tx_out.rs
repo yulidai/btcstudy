@@ -32,6 +32,14 @@ impl TxOut {
 
         Ok(result)
     }
+
+    pub fn amount(&self) -> u64 {
+        self.amount
+    }
+
+    pub fn script(&self) -> &Script {
+        &self.script
+    }
 }
 
 

@@ -4,9 +4,9 @@ pub use tx_in::TxIn;
 pub use tx_out::TxOut;
 pub use tx_fetcher::TxFetcher;
 pub use transaction::Transaction;
+pub use sighash::SigHash
 
 pub type LockTime = Version;
-pub type SighHash = Version;
 
 mod error;
 mod version;
@@ -14,3 +14,4 @@ mod tx_in;
 mod tx_out;
 mod tx_fetcher;
 mod transaction;
+mod sighash;

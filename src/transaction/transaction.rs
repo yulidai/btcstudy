@@ -94,6 +94,20 @@ impl Transaction {
 
         Ok(hash::hash256(&tx_bytes))
     }
+
+    // TODO get sighash from tx self
+    pub fn verify(&self, sighash: &SighHash) -> Result<bool, Error> {
+        if sighash.serialize() != [1u8, 0, 0, 0] {
+            return Err(Error::InvalidSigHash);
+        }
+        let z = self.z_sighash_all(sighash)?;
+        for input in &self.inputs {
+            if !input.verify(&z)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
 
 #[cfg(test)]
@@ -119,8 +133,7 @@ mod tests {
         assert_eq!(first_tx.fee().unwrap(), 0);
     }
 
-    #[test]
-    fn transaction_fee_2() {
+    fn get_tx_from_parsed() -> Transaction {
         let bytes = hex::decode("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf830\
             3c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccf\
             cf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8\
@@ -128,6 +141,12 @@ mod tests {
             afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88a\
             c99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600").unwrap();
         let (tx, _) = Transaction::parse(&bytes).unwrap();
+        tx
+    }
+
+    #[test]
+    fn transaction_fee_2() {
+        let tx = get_tx_from_parsed();
         let fee = tx.fee().unwrap();
 
         assert!(fee > 0);
@@ -135,16 +154,22 @@ mod tests {
 
     #[test]
     fn transaction_z_sighash_all() {
-        let bytes = hex::decode("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf830\
-            3c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccf\
-            cf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8\
-            e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278\
-            afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88a\
-            c99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600").unwrap();
-        let (tx, _) = Transaction::parse(&bytes).unwrap();
-
+        let tx = get_tx_from_parsed();
         let sighash = SighHash::parse(&[1u8, 0, 0, 0]).unwrap();
         let z = tx.z_sighash_all(&sighash).unwrap();
         assert_eq!("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", hex::encode(z));
+    }
+
+    #[test]
+    fn transaction_verify() {
+        let mut tx_hash = [0u8; 32];
+        tx_hash.copy_from_slice(&hex::decode("f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16").unwrap());
+        let mut fetcher = TxFetcher::new();
+        let first_tx = fetcher.fetch(&tx_hash, false, false).unwrap();
+
+        let sighash = SighHash::parse(&[1u8, 0, 0, 0]).unwrap();
+        let result = first_tx.verify(&sighash).unwrap();
+
+        assert!(result);
     }
 }

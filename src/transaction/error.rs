@@ -8,6 +8,7 @@ pub enum Error {
     InvalidVersion,
     InvalidTxIn,
     InvalidTxFee,
+    InvalidSigHash,
 
     Script(ScriptError),
 

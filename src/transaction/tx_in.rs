@@ -2,6 +2,7 @@ use crate::util::{math, hash::Hash256Value};
 use crate::script::Script;
 use super::{Error, Version, TxFetcher, TxOut};
 use std::convert::TryFrom;
+use primitive_types::U256;
 
 #[derive(Debug, Clone)]
 pub struct TxIn {
@@ -47,6 +48,13 @@ impl TxIn {
         result.append(&mut self.sequence.serialize().to_vec());
 
         Ok(result)
+    }
+
+    pub fn verify(&self, z: &Hash256Value) -> Result<bool, Error> {
+        let output_ref = self.get_output_ref()?;
+        let combined_script = self.script.clone() + output_ref.script().clone();
+        let z = U256::from(z);
+        combined_script.evaluate(z).map_err(|e| e.into())
     }
 
     pub fn value(&self) -> Result<u64, Error> {

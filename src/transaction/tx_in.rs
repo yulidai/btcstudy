@@ -1,14 +1,14 @@
 use crate::util::{math, hash::Hash256Value};
 use crate::script::Script;
-use super::{Error, Version, TxFetcher};
+use super::{Error, Version, TxFetcher, TxOut};
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
 pub struct TxIn {
-    prev_tx: Hash256Value,
-    prev_index: PrevIndex,
-    script: Script,
-    sequence: Sequence,
+    pub prev_tx: Hash256Value,
+    pub prev_index: PrevIndex,
+    pub script: Script,
+    pub sequence: Sequence,
 }
 
 impl TxIn {
@@ -37,8 +37,11 @@ impl TxIn {
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        let mut prev_tx = self.prev_tx.to_vec();
+        prev_tx.reverse(); // little endian
+
         let mut result = Vec::new();
-        result.append(&mut self.prev_tx.to_vec());
+        result.append(&mut prev_tx);
         result.append(&mut self.prev_index.serialize().to_vec());
         result.append(&mut self.script.serialize()?);
         result.append(&mut self.sequence.serialize().to_vec());
@@ -46,13 +49,18 @@ impl TxIn {
         Ok(result)
     }
 
-    pub fn value(&self, fetcher: &mut TxFetcher, testnet: bool) -> Result<u64, Error> {
-        let tx = fetcher.fetch(&self.prev_tx, testnet, false)?;
+    pub fn value(&self) -> Result<u64, Error> {
+        let output = self.get_output_ref()?;
+        Ok(output.amount())
+    }
+
+    pub fn get_output_ref(&self) -> Result<TxOut, Error> {
+        let tx = TxFetcher::fetch_without_cache(&self.prev_tx, false)?;
         let prev_index = usize::try_from(self.prev_index.value()).expect("failed convert u32 into usize");
         if prev_index >= tx.outputs.len() {
             return Err(Error::InvalidTxIn);
         }
-        Ok(tx.outputs[prev_index].amount())
+        Ok(tx.outputs[prev_index].clone())
     }
 }
 

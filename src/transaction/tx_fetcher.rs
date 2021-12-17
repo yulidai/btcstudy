@@ -26,12 +26,17 @@ impl TxFetcher {
         if let Some(tx) = self.cache.get(tx_hash) {
             return Ok((*tx).clone());
         }
+        let tx = Self::fetch_without_cache(tx_hash, testnet)?;
+        self.cache.insert(tx_hash.clone(), tx.clone());
 
+        Ok(tx)
+    }
+
+    pub fn fetch_without_cache(tx_hash: &Hash256Value, testnet: bool) -> Result<Transaction, Error> {
         let url = format!("{}/tx/{}/hex", Self::get_url(testnet), hex::encode(tx_hash));
         let body = reqwest::blocking::get(&url)?.text()?;
         let body = hex::decode(body)?;
         let (tx, _) = Transaction::parse(&body)?;
-        self.cache.insert(tx_hash.clone(), tx.clone());
 
         Ok(tx)
     }

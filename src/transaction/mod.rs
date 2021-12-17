@@ -6,6 +6,7 @@ pub use tx_fetcher::TxFetcher;
 pub use transaction::Transaction;
 
 pub type LockTime = Version;
+pub type SighHash = Version;
 
 mod error;
 mod version;

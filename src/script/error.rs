@@ -1,3 +1,5 @@
+use crate::transaction::Error as TransactionError;
+
 #[derive(Debug)]
 pub enum Error {
     // CommandElement
@@ -19,10 +21,17 @@ pub enum Error {
 
     // Other
     Unknown(String),
+    Transaction(TransactionError),
 }
 
 impl From<&str> for Error {
     fn from(e: &str) -> Self {
         Self::Unknown(e.into())
+    }
+}
+
+impl From<TransactionError> for Error {
+    fn from(e: TransactionError) -> Self {
+        Self::Transaction(e)
     }
 }

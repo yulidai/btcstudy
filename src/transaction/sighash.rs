@@ -1,6 +1,6 @@
 use super::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum SigHash {
     All = 0x1,
     None = 0x2,

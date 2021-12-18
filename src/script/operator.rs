@@ -1,27 +1,35 @@
 use crate::secp256k1::{S256Point, Signature};
+use crate::transaction::{Transaction, SigHash, ZProvider};
 use crate::util::hash;
 use primitive_types::U256;
-use super::{CommandElement, Opcode, operator, Num, Stack};
+use super::{CommandElement, Opcode, Num, Stack};
 use super::error::Error;
 
-pub fn check_signature(pk: Vec<u8>, sig: Vec<u8>, z: U256) -> Result<bool, Error>  {
+pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
     let pk = S256Point::parse(&pk).map_err(|_| Error::InvalidPublicKey)?;
-    let (sig, _) = Signature::parse_der(&sig).map_err(|_| Error::InvalidSignature)?;
+    let (sig, used) = Signature::parse_der(&sig_raw).map_err(|_| Error::InvalidSignature)?;
+
+    let sighash = if used + 1 == sig_raw.len() {
+        SigHash::parse(sig_raw[used])?
+    } else {
+        SigHash::All // default is all
+    };
+    let z = z_privoder.z_u256(sighash);
 
     Ok(sig.verify(z, pk))
 }
 
-pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, z: U256) -> Result<bool, Error> {
+pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
     let mut result = true;
     match cmd {
-        CommandElement::Op(op) => result = evaluate_opcode(op, stack, z)?,
+        CommandElement::Op(op) => result = evaluate_opcode(op, stack, z_privoder)?,
         CommandElement::Data(data) => stack.push(data),
     };
 
     Ok(result)
 }
 
-fn evaluate_opcode(op: Opcode, stack: &mut Stack, z: U256) -> Result<bool, Error> {
+fn evaluate_opcode(op: Opcode, stack: &mut Stack, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
     let mut result = true;
     match op {
         Opcode::Op0 => {
@@ -75,7 +83,7 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, z: U256) -> Result<bool, Error
         Opcode::OpChecksig => {
             let pk = stack.pop()?;
             let sig = stack.pop()?;
-            result = operator::check_signature(pk, sig, z)?;
+            result = check_signature(pk, sig, z_privoder)?;
 
             let stack_result = if result { vec![1] } else { vec![] };
             stack.push(stack_result);

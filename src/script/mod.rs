@@ -4,6 +4,7 @@ pub use opcode::Opcode;
 pub use cmd_element::CommandElement;
 pub use num::Num;
 pub use error::Error;
+pub use builder::ScriptBuilder;
 
 mod cmd_element;
 mod opcode;
@@ -12,3 +13,4 @@ mod script;
 mod num;
 mod error;
 mod stack;
+mod builder;

@@ -47,23 +47,27 @@ pub fn encode_bytes(bytes: &[u8]) -> String {
 }
 
 pub fn encode_bytes_checksum(bytes: &[u8]) -> String {
-    let mut checksum = util::hash::hash256(bytes)[..4].to_vec();
+    let mut checksum = make_checksum(bytes);
     let mut bytes = bytes.to_vec();
     bytes.append(&mut checksum);
 
     encode_bytes(&bytes)
 }
 
-pub fn decode_with_checksum(characters: &str) -> Result<Vec<u8>, &'static str> {
-    let len = characters.len();
-    if len < 4 {
-        return Err("invalid str, at least 4 char for checksum");
-    }
-    let checksum_expect = &characters[(len-4)..];
+fn make_checksum(bytes: &[u8]) -> Vec<u8> {
+    util::hash::hash256(bytes)[..4].to_vec()
+}
 
-    let result = decode(&characters[..(len-4)])?;
-    let checksum = encode_bytes_checksum(&result);
-    if checksum_expect != checksum {
+// TODO move to wallet module in the future
+pub fn decode_btc_addr(characters: &str) -> Result<Vec<u8>, &'static str> {
+    let mut result = decode(characters)?;
+    let len = result.len();
+    if len < 5 {
+        return Err("invalid str, at least 5 char for network and checksum");
+    }
+    let checksum_expect = &result[(len-4)..];
+    let checksum_real = make_checksum(&result[..(len-4)]);
+    if checksum_expect != checksum_real {
         return Err("Invalid checksum");
     }
 

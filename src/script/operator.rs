@@ -6,13 +6,25 @@ use super::error::Error;
 
 pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
     let z_provider = Box::new(tx.clone()) as Box<dyn ZProvider>;
+
+    let mut amount_in = 0;
     for input in &tx.inputs {
         let output_ref = input.get_output_ref()?;
         let combined_script = input.script.clone() + output_ref.script().clone();
         if !combined_script.evaluate(&z_provider)? {
             return Ok(false);
         }
+        amount_in += output_ref.amount();
     }
+
+    let mut amount_out = 0;
+    for output in &tx.outputs {
+        amount_out += output.amount();
+    }
+    if amount_in < amount_out {
+        return Err(Error::InvalidTxFee)
+    }
+
     Ok(true)
 }
 

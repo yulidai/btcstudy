@@ -7,6 +7,7 @@ pub enum Error {
     TooLongBytes, // should <= 520 within Script::parse
     InvalidBytes,
     InvalidOpcode,
+    InvalidTxFee,
 
     // Stack
     EmptyStack,

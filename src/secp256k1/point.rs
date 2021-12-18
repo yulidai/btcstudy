@@ -123,7 +123,7 @@ impl S256Point {
         let mut bytes = [prefix].to_vec();
         bytes.append(&mut h160);
 
-        base58::ecode_bytes_checksum(&bytes)
+        base58::encode_bytes_checksum(&bytes)
     }
 }
 

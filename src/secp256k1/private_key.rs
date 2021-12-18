@@ -58,7 +58,7 @@ impl PrivateKey {
         }
         println!("result of wif: {:?}", hex::encode(&result));
 
-        base58::ecode_bytes_checksum(&result)
+        base58::encode_bytes_checksum(&result)
     }
 
     //TODO pub fn deterministic_k(&self, z: U256) -> S256FieldElementN;

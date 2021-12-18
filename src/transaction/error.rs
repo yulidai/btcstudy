@@ -1,5 +1,4 @@
 use std::convert::From;
-use crate::script::Error as ScriptError;
 use reqwest::Error as ReqwestError;
 use hex::FromHexError;
 
@@ -10,8 +9,6 @@ pub enum Error {
     InvalidTxFee,
     InvalidSigHash,
 
-    Script(ScriptError),
-
     Reqwest(ReqwestError),
     HexDecode(FromHexError),
 
@@ -21,12 +18,6 @@ pub enum Error {
 impl From<&str> for Error {
     fn from(s: &str) -> Self {
         Self::Unknown(s.into())
-    }
-}
-
-impl From<ScriptError> for Error {
-    fn from(e: ScriptError) -> Self {
-        Self::Script(e)
     }
 }
 

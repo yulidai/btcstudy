@@ -1,13 +1,13 @@
 use crate::util::hash::Hash256Value;
-use super::SigHash;
+use super::{SigHash, Error};
 use primitive_types::U256;
 
 pub trait ZProvider {
-    fn z(&self, sighash: SigHash) -> Hash256Value;
+    fn z(&self, sighash: SigHash) -> Result<Hash256Value, Error>;
     
-    fn z_u256(&self, sighash: SigHash) -> U256 {
-        let z = self.z(sighash);
-        U256::from_big_endian(&z)
+    fn z_u256(&self, sighash: SigHash) -> Result<U256, Error> {
+        let z = self.z(sighash)?;
+        Ok(U256::from_big_endian(&z))
     }
 }
 
@@ -15,10 +15,10 @@ pub trait ZProvider {
 pub struct ZProviderMocker(pub U256);
 
 impl ZProvider for ZProviderMocker {
-    fn z(&self, _: SigHash) -> Hash256Value {
+    fn z(&self, _: SigHash) -> Result<Hash256Value, Error> {
         let mut result = [0u8; 32];
         self.0.to_big_endian(&mut result);
 
-        result
+        Ok(result)
     }
 }

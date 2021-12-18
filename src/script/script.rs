@@ -2,7 +2,6 @@ use std::ops::Add;
 use super::{CommandElement, operator, Stack, Error};
 use crate::util::varint;
 use crate::transaction::ZProvider;
-use primitive_types::U256;
 
 #[derive(Debug, Clone)]
 pub struct Script {

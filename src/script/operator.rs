@@ -1,9 +1,20 @@
 use crate::secp256k1::{S256Point, Signature};
 use crate::transaction::{Transaction, SigHash, ZProvider};
 use crate::util::hash;
-use primitive_types::U256;
 use super::{CommandElement, Opcode, Num, Stack};
 use super::error::Error;
+
+pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
+    let z_provider = Box::new(tx.clone()) as Box<dyn ZProvider>;
+    for input in &tx.inputs {
+        let output_ref = input.get_output_ref()?;
+        let combined_script = input.script.clone() + output_ref.script().clone();
+        if !combined_script.evaluate(&z_provider)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
 
 pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
     let pk = S256Point::parse(&pk).map_err(|_| Error::InvalidPublicKey)?;
@@ -14,7 +25,7 @@ pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, z_privoder: &Box<dyn ZProv
     } else {
         SigHash::All // default is all
     };
-    let z = z_privoder.z_u256(sighash);
+    let z = z_privoder.z_u256(sighash)?;
 
     Ok(sig.verify(z, pk))
 }
@@ -90,4 +101,20 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, z_privoder: &Box<dyn ZProvider
         },
     };
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn operator_verify_transaction() {
+        use crate::transaction::{TxFetcher};
+
+        let mut tx_hash = [0u8; 32];
+        tx_hash.copy_from_slice(&hex::decode("f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16").unwrap());
+        let mut fetcher = TxFetcher::new();
+        let first_tx = fetcher.fetch(&tx_hash, false, false).unwrap();
+
+        let result = super::verify_tx(&first_tx).unwrap();
+        assert!(result);
+    }
 }

@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use super::{Error, TxIn, TxOut, Version, LockTime, SighHash};
+use super::{Error, TxIn, TxOut, Version, LockTime, SigHash, ZProvider};
 use crate::util::{
     math,
     hash::{self, Hash256Value},
@@ -82,37 +82,30 @@ impl Transaction {
             Ok(amount_in - amount_out)
         }
     }
+}
 
-    pub fn z_sighash_all(&self, hash: &SighHash) -> Result<Hash256Value, Error> {
-        let mut tx = self.clone();
-        for input in &mut tx.inputs {
-            let output_ref = input.get_output_ref()?;
-            input.script = output_ref.script().clone();
-        }
-        let mut tx_bytes = tx.serialize()?;
-        tx_bytes.append(&mut hash.serialize().to_vec());
+impl ZProvider for Transaction {
+    fn z(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
+        match sighash {
+            SigHash::All => {
+                let mut tx = self.clone();
+                for input in &mut tx.inputs {
+                    let output_ref = input.get_output_ref()?;
+                    input.script = output_ref.script().clone();
+                }
+                let mut tx_bytes = tx.serialize()?;
+                tx_bytes.append(&mut sighash.serialize().to_vec());
 
-        Ok(hash::hash256(&tx_bytes))
-    }
-
-    // TODO get sighash from tx self
-    pub fn verify(&self, sighash: &SighHash) -> Result<bool, Error> {
-        if sighash.serialize() != [1u8, 0, 0, 0] {
-            return Err(Error::InvalidSigHash);
+                Ok(hash::hash256(&tx_bytes))
+            },
+            _ => Err(Error::InvalidSigHash),
         }
-        let z = self.z_sighash_all(sighash)?;
-        for input in &self.inputs {
-            if !input.verify(&z)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::transaction::{TxFetcher, Transaction, SighHash};
+    use crate::transaction::{TxFetcher, Transaction, SigHash, ZProvider};
 
     #[test]
     fn transaction_parse() {
@@ -155,21 +148,7 @@ mod tests {
     #[test]
     fn transaction_z_sighash_all() {
         let tx = get_tx_from_parsed();
-        let sighash = SighHash::parse(&[1u8, 0, 0, 0]).unwrap();
-        let z = tx.z_sighash_all(&sighash).unwrap();
+        let z = tx.z(SigHash::All).unwrap();
         assert_eq!("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", hex::encode(z));
-    }
-
-    #[test]
-    fn transaction_verify() {
-        let mut tx_hash = [0u8; 32];
-        tx_hash.copy_from_slice(&hex::decode("f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16").unwrap());
-        let mut fetcher = TxFetcher::new();
-        let first_tx = fetcher.fetch(&tx_hash, false, false).unwrap();
-
-        let sighash = SighHash::parse(&[1u8, 0, 0, 0]).unwrap();
-        let result = first_tx.verify(&sighash).unwrap();
-
-        assert!(result);
     }
 }

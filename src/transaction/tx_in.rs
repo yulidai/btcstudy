@@ -2,7 +2,6 @@ use crate::util::{math, hash::Hash256Value};
 use crate::script::Script;
 use super::{Error, Version, TxFetcher, TxOut};
 use std::convert::TryFrom;
-use primitive_types::U256;
 
 #[derive(Debug, Clone)]
 pub struct TxIn {
@@ -26,7 +25,7 @@ impl TxIn {
         index = math::check_range_add_with_max(index, 4, len)?;
         let prev_index = PrevIndex::parse(&bytes[(index-4)..index])?;
         // script
-        let (script, used) = Script::parse(&bytes[index..])?;
+        let (script, used) = Script::parse(&bytes[index..]).expect("script parse error");
         index = math::check_range_add_with_max(index, used, len)?;
         // sequence
         index = math::check_range_add_with_max(index, 4, len)?;
@@ -44,17 +43,10 @@ impl TxIn {
         let mut result = Vec::new();
         result.append(&mut prev_tx);
         result.append(&mut self.prev_index.serialize().to_vec());
-        result.append(&mut self.script.serialize()?);
+        result.append(&mut self.script.serialize().expect("script serialize error"));
         result.append(&mut self.sequence.serialize().to_vec());
 
         Ok(result)
-    }
-
-    pub fn verify(&self, z: &Hash256Value) -> Result<bool, Error> {
-        let output_ref = self.get_output_ref()?;
-        let combined_script = self.script.clone() + output_ref.script().clone();
-        let z = U256::from(z);
-        combined_script.evaluate(z).map_err(|e| e.into())
     }
 
     pub fn value(&self) -> Result<u64, Error> {

@@ -18,7 +18,7 @@ impl TxOut {
         param.copy_from_slice(&bytes[(index-8)..index]);
         let amount = u64::from_le_bytes(param);
 
-        let (script, used) = Script::parse(&bytes[index..])?;
+        let (script, used) = Script::parse(&bytes[index..]).expect("script parse error");
         index = math::check_range_add_with_max(index, used, len)?;
 
         let result = Self { amount, script };
@@ -28,7 +28,7 @@ impl TxOut {
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         let mut result = Vec::new();
         result.append(&mut self.amount.to_le_bytes().to_vec());
-        result.append(&mut self.script.serialize()?);
+        result.append(&mut self.script.serialize().expect("script serialize error"));
 
         Ok(result)
     }

@@ -169,4 +169,48 @@ mod tests {
         let result = combined_script.evaluate(0, &z).unwrap();
         assert!(result);
     }
+
+    fn script_pubkey_for_check_multisig_and_z() -> (Script, Box<dyn ZProvider>) {
+        // new key for test
+        use crate::secp256k1::PrivateKey;
+        let sk = PrivateKey::new(1.into()).unwrap();
+        let sec0 = CommandElement::Data(sk.pk_point().sec_compressed().unwrap());
+
+        let sec1 = CommandElement::Data(hex::decode("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34").unwrap());
+        let op_checkmultisig = CommandElement::Op(Opcode::OpCheckmultisig);
+        let op_2 = CommandElement::Op(Opcode::Op2);
+        let op_1 = CommandElement::Op(Opcode::Op1);
+        let script_pubkey = Script::new(vec![op_checkmultisig, op_2, sec0, sec1, op_1]);
+
+        let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
+        let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
+
+        (script_pubkey, z)
+    }
+
+    #[test]
+    fn script_check_multisig_success() {
+        let sig = CommandElement::Data(hex::decode("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6").unwrap());
+        let op_0 = CommandElement::Op(Opcode::Op0); // for satoshi bug
+        let script_sig = Script::new(vec![sig, op_0]);
+
+        let (script_pubkey, z) = script_pubkey_for_check_multisig_and_z();
+        let combined_script = script_pubkey + script_sig;
+
+        let result = combined_script.evaluate(0, &z).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn script_check_multisig_failed() {
+        let sig = CommandElement::Data(hex::decode("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab7").unwrap());
+        let op_0 = CommandElement::Op(Opcode::Op0); // for satoshi bug
+        let script_sig = Script::new(vec![sig, op_0]);
+
+        let (script_pubkey, z) = script_pubkey_for_check_multisig_and_z();
+        let combined_script = script_pubkey + script_sig;
+
+        let result = combined_script.evaluate(0, &z).unwrap();
+        assert!(!result);
+    }
 }

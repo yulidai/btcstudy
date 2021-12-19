@@ -1,6 +1,7 @@
 use super::Error;
+use std::cmp::PartialEq;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SigHash {
     All = 0x1,
     None = 0x2,

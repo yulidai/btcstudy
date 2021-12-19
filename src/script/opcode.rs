@@ -23,6 +23,7 @@ pub enum Opcode {
     OpAdd = 0x93,
     OpHash160 = 0xa9,
     OpChecksig = 0xac,
+    OpCheckmultisig = 0xae,
 }
 
 impl Opcode {
@@ -51,6 +52,7 @@ impl Opcode {
             0x93 => Some(Self::OpAdd),
             0xa9 => Some(Self::OpHash160),
             0xac => Some(Self::OpChecksig),
+            0xae => Some(Self::OpCheckmultisig),
             _ => None
         }
     }

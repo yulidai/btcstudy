@@ -1,8 +1,9 @@
 use crate::secp256k1::{S256Point, Signature};
 use crate::transaction::{Transaction, SigHash, ZProvider};
-use crate::util::hash;
+use crate::util::{hash, varint};
 use super::{CommandElement, Opcode, Num, Stack};
 use super::error::Error;
+use primitive_types::U256;
 
 pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
     let z_provider = Box::new(tx.clone()) as Box<dyn ZProvider>;
@@ -40,6 +41,51 @@ pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, index: usize, z_privoder: 
     let z = z_privoder.z_u256(index, sighash)?;
 
     Ok(sig.verify(z, pk))
+}
+
+pub fn check_multiple_signature(public_keys: Vec<Vec<u8>>, signatures: Vec<Vec<u8>>, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
+    let mut pks = Vec::new();
+    for public_key in public_keys {
+        let pk = S256Point::parse(&public_key).map_err(|_| Error::InvalidPublicKey)?;
+        pks.push(pk);
+    }
+
+    let mut z = U256::zero();
+    let mut sighash: Option<SigHash> = None;
+    let mut sigs = Vec::new();
+    for sig_raw in signatures {
+        let (sig, used) = Signature::parse_der(&sig_raw).map_err(|_| Error::InvalidSignature)?;
+        sigs.push(sig);
+
+        let sighash_now = if used + 1 == sig_raw.len() {
+            SigHash::parse(sig_raw[used])?
+        } else {
+            SigHash::All // default is all
+        };
+        match sighash {
+            None => {
+                sighash = Some(sighash_now);
+                z = z_privoder.z_u256(index, sighash_now)?;
+            },
+            Some(sighash) => {
+                if sighash != sighash_now {
+                    return Err(Error::SigHashIsNotTheSame);
+                }
+            }
+        }
+    }
+
+    let mut correct_count = 0;
+    for sig in &sigs {
+        for pk in &pks {
+            if sig.verify(z, pk.clone()) {
+                correct_count += 1;
+                break;
+            }
+        }
+    }
+
+    Ok(correct_count == sigs.len())
 }
 
 pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
@@ -111,6 +157,29 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, index: usize, z_privoder: &Box
             let stack_result = if result { vec![1] } else { vec![] };
             stack.push(stack_result);
         },
+        Opcode::OpCheckmultisig => {
+            let (n, _) = varint::decode(&stack.pop()?)?;
+            if n > 20 {
+                return Err(Error::PublicKeyIsTooMuchForCheckMultisig);
+            }
+
+            let mut public_keys = Vec::new();
+            for _ in 0..n {
+                public_keys.push(stack.pop()?);
+            }
+
+            let (m, _) = varint::decode(&stack.pop()?)?;
+            let mut signatures = Vec::new();
+            for _ in 0..m {
+                signatures.push(stack.pop()?);
+            }
+
+            stack.pop()?; // fix satoshi bug
+
+            let result = check_multiple_signature(public_keys, signatures, index, z_privoder)?;
+            let stack_result = if result { vec![1] } else { vec![] };
+            stack.push(stack_result);
+        }
     };
     Ok(result)
 }

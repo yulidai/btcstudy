@@ -9,6 +9,10 @@ pub enum Error {
     InvalidOpcode,
     InvalidTxFee,
 
+    // check
+    SigHashIsNotTheSame,
+    PublicKeyIsTooMuchForCheckMultisig,
+
     // Stack
     EmptyStack,
 

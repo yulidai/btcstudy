@@ -1,5 +1,5 @@
-use sha2::{Sha256};
-use ripemd160::{Ripemd160, Digest};
+use sha2::{Sha256, Digest as Sha256Digest};
+use ripemd160::{Ripemd160, Digest as Rip160Digest};
 
 // types
 

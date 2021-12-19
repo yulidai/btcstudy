@@ -1,11 +1,21 @@
 use sha2::{Sha256};
 use ripemd160::{Ripemd160, Digest};
-use std::convert::From;
 
 // types
 
 pub type Hash256Value = [u8; 32];
 pub type Hash160Value = [u8; 20];
+
+pub fn convert_slice_into_hash256(data: &[u8]) -> Hash256Value {
+    let mut last = data.len();
+    if last > 32 {
+        last = 32;
+    }
+    let mut result = [0u8; 32];
+    result.copy_from_slice(&data[..last]);
+
+    result
+}
 
 pub fn convert_slice_into_hash160(data: &[u8]) -> Hash160Value {
     let mut last = data.len();

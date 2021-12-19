@@ -15,6 +15,15 @@ pub struct Transaction {
 }
 
 impl Transaction {
+    pub fn id(&self) -> Result<Hash256Value, Error> {
+        let bytes = self.serialize()?;
+        let mut result = hash::hash256(&bytes);
+        result.reverse(); // little endian
+        result = hash::convert_slice_into_hash256(&result);
+
+        Ok(result)
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<(Self, usize), Error> {
         let len = bytes.len();
         let mut index = 0;
@@ -115,6 +124,16 @@ mod tests {
 
         let bytes_serialized = tx.serialize().unwrap();
         assert_eq!(bytes, bytes_serialized);
+    }
+
+    #[test]
+    fn transaction_id() {
+        let tx_id = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16";
+        let mut fetcher = TxFetcher::new();
+        let mut tx_hash = [0u8; 32];
+        tx_hash.copy_from_slice(&hex::decode(&tx_id).unwrap());
+        let first_tx = fetcher.fetch(&tx_hash, false, false).unwrap();
+        assert_eq!(hex::encode(first_tx.id().unwrap()), tx_id);
     }
 
     #[test]

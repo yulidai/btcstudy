@@ -4,6 +4,10 @@ use super::Error;
 pub struct Version(u32);
 
 impl Version {
+    pub fn new(v: u32) -> Self {
+        Self(v)
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < 4 {
             return Err(Error::InvalidVersion)

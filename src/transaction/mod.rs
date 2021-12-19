@@ -1,6 +1,6 @@
 pub use error::Error;
 pub use version::Version;
-pub use tx_in::TxIn;
+pub use tx_in::{TxIn, Sequence, PrevIndex};
 pub use tx_out::TxOut;
 pub use tx_fetcher::TxFetcher;
 pub use transaction::Transaction;

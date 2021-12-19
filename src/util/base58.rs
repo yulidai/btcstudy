@@ -60,7 +60,7 @@ fn make_checksum(bytes: &[u8]) -> Vec<u8> {
 
 // TODO move to wallet module in the future
 pub fn decode_btc_addr(characters: &str) -> Result<Vec<u8>, &'static str> {
-    let mut result = decode(characters)?;
+    let result = decode(characters)?;
     let len = result.len();
     if len < 5 {
         return Err("invalid str, at least 5 char for network and checksum");

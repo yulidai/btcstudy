@@ -9,6 +9,10 @@ pub struct TxOut {
 }
 
 impl TxOut {
+    pub fn new(amount: u64, script: Script) -> Self {
+        Self { amount, script }
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<(Self, usize), Error> {
         let len = bytes.len();
         let mut index = 0;
@@ -48,9 +52,12 @@ mod tests {
     use super::TxOut;
 
     #[test]
-    fn tx_out_parse() {
+    fn tx_out_parse_serialize() {
         let bytes = hex::decode("a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac").unwrap();
-        let (_tx_out, used) = TxOut::parse(&bytes).unwrap();
+        let (tx_out, used) = TxOut::parse(&bytes).unwrap();
         assert_eq!(used, 34);
+
+        let bytes_serialized = tx_out.serialize().unwrap();
+        assert_eq!(bytes, bytes_serialized);
     }
 }

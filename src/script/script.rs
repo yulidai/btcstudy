@@ -80,13 +80,14 @@ impl Script {
         Ok(result)
     }
 
-    pub fn evaluate(&self, z_provider: &Box<dyn ZProvider>) -> Result<bool, Error> {
+    // @param index: index of input in inputs
+    pub fn evaluate(&self, index: usize, z_provider: &Box<dyn ZProvider>) -> Result<bool, Error> {
         let mut cmds = self.cmds.clone();
         cmds.reverse();
 
         let mut stack = Stack::new();
         for cmd in cmds {
-            if operator::evaluate_command(cmd, &mut stack, z_provider)? == false {
+            if operator::evaluate_command(cmd, &mut stack, index, z_provider)? == false {
                 return Ok(false);
             }
         }
@@ -116,7 +117,7 @@ mod tests {
 
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
         let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(&z).unwrap();
+        let result = combined_script.evaluate(0, &z).unwrap();
         assert!(result);
     }
 
@@ -132,7 +133,7 @@ mod tests {
         let combined_script = script_pubkey + script_sig;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3e").unwrap());
         let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(&z).unwrap();
+        let result = combined_script.evaluate(0, &z).unwrap();
         assert!(!result);
     }
 
@@ -149,7 +150,7 @@ mod tests {
         let combined_script = script_pubkey + script_sig;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
         let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(&z).unwrap();
+        let result = combined_script.evaluate(0, &z).unwrap();
         assert!(result);
     }
 
@@ -165,7 +166,7 @@ mod tests {
 
         let combined_script = script_pubkey + script_sig;
         let z = Box::new(ZProviderMocker(U256::zero())) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(&z).unwrap();
+        let result = combined_script.evaluate(0, &z).unwrap();
         assert!(result);
     }
 }

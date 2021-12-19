@@ -3,10 +3,10 @@ use super::{SigHash, Error};
 use primitive_types::U256;
 
 pub trait ZProvider {
-    fn z(&self, sighash: SigHash) -> Result<Hash256Value, Error>;
+    fn z(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error>;
     
-    fn z_u256(&self, sighash: SigHash) -> Result<U256, Error> {
-        let z = self.z(sighash)?;
+    fn z_u256(&self, index: usize, sighash: SigHash) -> Result<U256, Error> {
+        let z = self.z(index, sighash)?;
         Ok(U256::from_big_endian(&z))
     }
 }
@@ -15,7 +15,7 @@ pub trait ZProvider {
 pub struct ZProviderMocker(pub U256);
 
 impl ZProvider for ZProviderMocker {
-    fn z(&self, _: SigHash) -> Result<Hash256Value, Error> {
+    fn z(&self, _: usize, _: SigHash) -> Result<Hash256Value, Error> {
         let mut result = [0u8; 32];
         self.0.to_big_endian(&mut result);
 

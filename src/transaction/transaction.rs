@@ -94,7 +94,7 @@ impl Transaction {
 }
 
 impl ZProvider for Transaction {
-    fn z(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
+    fn z(&self, _input: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
         match sighash {
             SigHash::All => {
                 let mut tx = self.clone();
@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn transaction_z_sighash_all() {
         let tx = get_tx_from_parsed();
-        let z = tx.z(SigHash::All).unwrap();
+        let z = tx.z(0, SigHash::All).unwrap();
         assert_eq!("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", hex::encode(z));
     }
 }

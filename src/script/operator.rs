@@ -8,10 +8,10 @@ pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
     let z_provider = Box::new(tx.clone()) as Box<dyn ZProvider>;
 
     let mut amount_in = 0;
-    for input in &tx.inputs {
+    for (i, input) in tx.inputs.iter().enumerate() {
         let output_ref = input.get_output_ref()?;
         let combined_script = output_ref.script().clone() + input.script.clone();
-        if !combined_script.evaluate(&z_provider)? {
+        if !combined_script.evaluate(i, &z_provider)? {
             return Ok(false);
         }
         amount_in += output_ref.amount();
@@ -28,7 +28,7 @@ pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
     Ok(true)
 }
 
-pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
+pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
     let pk = S256Point::parse(&pk).map_err(|_| Error::InvalidPublicKey)?;
     let (sig, used) = Signature::parse_der(&sig_raw).map_err(|_| Error::InvalidSignature)?;
 
@@ -37,22 +37,22 @@ pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, z_privoder: &Box<dyn ZProv
     } else {
         SigHash::All // default is all
     };
-    let z = z_privoder.z_u256(sighash)?;
+    let z = z_privoder.z_u256(index, sighash)?;
 
     Ok(sig.verify(z, pk))
 }
 
-pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
+pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
     let mut result = true;
     match cmd {
-        CommandElement::Op(op) => result = evaluate_opcode(op, stack, z_privoder)?,
+        CommandElement::Op(op) => result = evaluate_opcode(op, stack, index, z_privoder)?,
         CommandElement::Data(data) => stack.push(data),
     };
 
     Ok(result)
 }
 
-fn evaluate_opcode(op: Opcode, stack: &mut Stack, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
+fn evaluate_opcode(op: Opcode, stack: &mut Stack, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
     let mut result = true;
     match op {
         Opcode::Op0 => {
@@ -106,7 +106,7 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, z_privoder: &Box<dyn ZProvider
         Opcode::OpChecksig => {
             let pk = stack.pop()?;
             let sig = stack.pop()?;
-            result = check_signature(pk, sig, z_privoder)?;
+            result = check_signature(pk, sig, index, z_privoder)?;
 
             let stack_result = if result { vec![1] } else { vec![] };
             stack.push(stack_result);

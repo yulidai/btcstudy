@@ -37,6 +37,6 @@ mod tests {
         let receiver_byte = base58::decode_btc_addr("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2").unwrap();
         let receiver_h160 = hash::convert_slice_into_hash160(&receiver_byte[1..]); // skip network byte
         let script = ScriptBuilder::p2pkh(&receiver_h160);
-        assert_eq!(hex::encode(script.serialize().unwrap()), "19ac8814d52ad7ca9b3d096a38e752c2018e6fbc40cdf26fa976");
+        assert_eq!(hex::encode(script.serialize().unwrap()), "1976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac");
     }
 }

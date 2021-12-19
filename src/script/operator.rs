@@ -10,7 +10,7 @@ pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
     let mut amount_in = 0;
     for input in &tx.inputs {
         let output_ref = input.get_output_ref()?;
-        let combined_script = input.script.clone() + output_ref.script().clone();
+        let combined_script = output_ref.script().clone() + input.script.clone();
         if !combined_script.evaluate(&z_provider)? {
             return Ok(false);
         }

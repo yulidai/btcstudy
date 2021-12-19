@@ -1,7 +1,6 @@
 use super::{S256Curve, S256FieldElementN, S256FieldElementNCreator, S256Point, Signature};
 use primitive_types::U256;
-use crate::util::base58;
-
+use crate::util::{base58, hash};
 pub struct PrivateKey {
     secret: S256FieldElementN,
     point: S256Point,
@@ -43,6 +42,11 @@ impl PrivateKey {
         Ok(Signature::new(r.num(), signature.num()))
     }
 
+    pub fn sign_deterministic(&self, z: U256) -> Result<Signature, &'static str> {
+        let k = self.deterministic_k(z);
+        self.sign(z, k.num())
+    }
+
     pub fn wif(&self, compressed: bool, test_net: bool) -> String {
         let mut secret_bytes = [0u8; 32];
         self.secret.num().to_big_endian(&mut secret_bytes);
@@ -61,7 +65,37 @@ impl PrivateKey {
         base58::encode_bytes_checksum(&result)
     }
 
-    //TODO pub fn deterministic_k(&self, z: U256) -> S256FieldElementN;
+    pub fn deterministic_k(&self, z: U256) -> S256FieldElementN {
+        let mut k = [0u8; 32];
+        let mut v = [1u8; 32];
+        let z = S256FieldElementNCreator::from_u256(z);
+
+        let mut z_bytes = [0u8; 32];
+        z.num().to_big_endian(&mut z_bytes);
+        let mut secret_bytes = [0u8; 32];
+        self.secret.num().to_big_endian(&mut secret_bytes);
+
+        let message = [v.to_vec(), vec![0u8], secret_bytes.to_vec(), z_bytes.to_vec()].concat();
+        k = hash::hmac256(&k, &message);
+        v = hash::hmac256(&k, &v);
+
+        let message = [v.to_vec(), vec![1u8], secret_bytes.to_vec(), z_bytes.to_vec()].concat();
+        k = hash::hmac256(&k, &message);
+        v = hash::hmac256(&k, &v);
+
+        let n_prime = S256Curve::n();
+        loop {
+            v = hash::hmac256(&k, &v);
+            let candidate = U256::from_big_endian(&v);
+            if !candidate.is_zero() && candidate < n_prime {
+                return S256FieldElementNCreator::from_u256(candidate);
+            }
+            // update k
+            let message = [v.to_vec(), vec![0u8]].concat();
+            k = hash::hmac256(&k, &message);
+            v = hash::hmac256(&k, &v);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -69,6 +103,7 @@ mod tests {
     use super::PrivateKey;
     use super::super::S256Curve;
     use primitive_types::U256;
+    use crate::util::hash;
 
     #[test]
     fn create_priv_key_success() {
@@ -135,5 +170,15 @@ mod tests {
         let sk = PrivateKey::new(sk).unwrap();
         let wif = sk.wif(true, false);
         assert_eq!(wif, "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a");
+    }
+
+    #[test]
+    fn priv_key_deterministic_k() {
+        let sk = PrivateKey::new(1.into()).unwrap();
+        let message = hash::sha256("Satoshi Nakamoto".as_bytes());
+        let result = sk.deterministic_k(U256::from_big_endian(&message));
+
+        let expect = U256::from_str_radix("8f8a276c19f4149656b280621e358cce24f5f52542772691ee69063b74f15d15", 16).unwrap();
+        assert_eq!(result.num(), expect);
     }
 }

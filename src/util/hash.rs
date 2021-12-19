@@ -1,5 +1,6 @@
 use sha2::{Sha256, Digest as Sha256Digest};
 use ripemd160::{Ripemd160, Digest as Rip160Digest};
+use hmac::{Hmac, Mac};
 
 // types
 
@@ -48,6 +49,15 @@ pub fn hash160(bytes: &[u8]) -> [u8; 20] {
 
 pub fn hash256(bytes: &[u8]) -> [u8; 32] {
     sha256(&sha256(bytes))
+}
+
+// Create alias for HMAC-SHA256
+pub type HmacSha256 = Hmac<Sha256>;
+
+pub fn hmac256(k: &[u8], m: &[u8]) -> [u8; 32] {
+    let mut mac = HmacSha256::new_from_slice(k).expect("HMAC can take key of any size");
+    mac.update(m);
+    mac.finalize().into_bytes().into()
 }
 
 #[cfg(test)]

@@ -91,6 +91,10 @@ impl Transaction {
             Ok(amount_in - amount_out)
         }
     }
+
+    pub fn is_coinbase(&self) -> bool {
+        self.inputs.len() == 1 && self.inputs[0].is_coinbase()
+    }
 }
 
 impl ZProvider for Transaction {

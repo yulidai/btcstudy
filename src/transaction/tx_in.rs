@@ -62,6 +62,10 @@ impl TxIn {
         }
         Ok(tx.outputs[prev_index].clone())
     }
+
+    pub fn is_coinbase(&self) -> bool {
+        self.prev_tx == [0u8; 32] && self.prev_index.value() == u32::MAX
+    }
 }
 
 pub type Sequence = Version;

@@ -1,5 +1,5 @@
 use std::ops::Add;
-use super::{CommandElement, operator, Stack, Error};
+use super::{CommandElement, operator, Stack, Error, Opcode};
 use crate::util::varint;
 use crate::transaction::ZProvider;
 
@@ -83,10 +83,8 @@ impl Script {
     // @param index: index of input in inputs
     pub fn evaluate(&self, index: usize, z_provider: &Box<dyn ZProvider>) -> Result<bool, Error> {
         let mut cmds = self.cmds.clone();
-        cmds.reverse();
-
         let mut stack = Stack::new();
-        for cmd in cmds {
+        while let Some(cmd) = cmds.pop() {
             if operator::evaluate_command(cmd, &mut stack, index, z_provider)? == false {
                 return Ok(false);
             }
@@ -94,6 +92,16 @@ impl Script {
 
         let ele = stack.pop()?;
         Ok(ele.len() > 0) // 0 is empty vec in stack
+    }
+
+    pub fn is_p2sh(cmds: &Vec<CommandElement>) -> bool {
+        if cmds.len() != 4 || !cmds[1].is_data() || !cmds[3].is_data() {
+            return false;
+        }
+        match (&cmds[0], &cmds[2]) {
+            (CommandElement::Op(ops0), CommandElement::Op(ops1)) => *ops0 == Opcode::OpEqual && *ops1 == Opcode::OpHash160,
+            _ => false
+        }
     }
 }
 
@@ -212,5 +220,17 @@ mod tests {
 
         let result = combined_script.evaluate(0, &z).unwrap();
         assert!(!result);
+    }
+
+    #[test]
+    fn script_is_p2sh_true() {
+        let cmds = vec![Opcode::OpEqual.into(), vec![0u8].into(), Opcode::OpHash160.into(), vec![0u8].into()];
+        assert!(Script::is_p2sh(&cmds));
+    }
+
+    #[test]
+    fn script_is_p2sh_false() {
+        let cmds = vec![Opcode::OpEqualverify.into(), vec![0u8].into(), Opcode::OpHash160.into(), vec![0u8].into()];
+        assert!(!Script::is_p2sh(&cmds));
     }
 }

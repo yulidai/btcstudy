@@ -1,7 +1,7 @@
 use crate::util::math;
 use super::{Opcode, Error};
 use std::fmt;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, From};
 
 #[derive(Clone)]
 pub enum CommandElement {
@@ -79,6 +79,20 @@ impl CommandElement {
 
         Ok(())
     }
+
+    pub fn is_data(&self) -> bool {
+        match self {
+            CommandElement::Op(_) => false,
+            CommandElement::Data(_) => true,
+        }
+    }
+
+    pub fn is_op(&self) -> bool {
+        match self {
+            CommandElement::Op(_) => true,
+            CommandElement::Data(_) => false,
+        }
+    }
 }
 
 impl fmt::Debug for CommandElement {
@@ -88,5 +102,17 @@ impl fmt::Debug for CommandElement {
             Self::Data(data) => format!("CommandElement::Data({})", hex::encode(data)),
         };
         write!(f, "{}", msg)
+    }
+}
+
+impl From<Opcode> for CommandElement {
+    fn from(opcode: Opcode) -> Self {
+        CommandElement::Op(opcode)
+    }
+}
+
+impl From<Vec<u8>> for CommandElement {
+    fn from(data: Vec<u8>) -> Self {
+        CommandElement::Data(data)
     }
 }

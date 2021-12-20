@@ -1,7 +1,7 @@
 use crate::secp256k1::{S256Point, Signature};
 use crate::transaction::{Transaction, SigHash, ZProvider};
 use crate::util::{hash, varint};
-use super::{CommandElement, Opcode, Num, Stack};
+use super::{CommandElement, Opcode, Num, Stack, Script};
 use super::error::Error;
 use primitive_types::U256;
 
@@ -76,8 +76,8 @@ pub fn check_multiple_signature(public_keys: Vec<Vec<u8>>, signatures: Vec<Vec<u
     }
 
     let mut correct_count = 0;
-    for sig in &sigs {
-        for pk in &pks {
+    for pk in &pks {
+        for sig in &sigs {
             if sig.verify(z, pk.clone()) {
                 correct_count += 1;
                 break;
@@ -86,6 +86,29 @@ pub fn check_multiple_signature(public_keys: Vec<Vec<u8>>, signatures: Vec<Vec<u
     }
 
     Ok(correct_count == sigs.len())
+}
+
+pub fn evaluate_p2sh(cmds: &mut Vec<CommandElement>, stack: &mut Stack, hash160: &Vec<u8>) -> Result<bool, Error> {
+    println!(">> hash160: {}", hex::encode(hash160));
+    let hash160_expect = hash::convert_slice_into_hash160(hash160);
+    println!(">> hash160_expect: {}", hex::encode(&hash160_expect));
+
+    let redeem_script_raw = stack.pop()?;
+    println!(">> redeem_script_raw: {}", hex::encode(&redeem_script_raw));
+    let hash160_real = hash::hash160(&redeem_script_raw);
+    println!(">> hash160_real: {}", hex::encode(&hash160_real));
+    if hash160_expect != hash160_real {
+        println!("hash160 is not same in p2sh");
+        return Ok(false);
+    }
+
+    println!("script parse start:");
+    let (redeem_script, _used) = Script::parse(&redeem_script_raw)?;
+    println!("script parse success: {:?}", redeem_script);
+    cmds.clear();
+    cmds.append(&mut redeem_script.cmds().clone());
+
+    Ok(true)
 }
 
 pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {

@@ -110,6 +110,19 @@ impl ZProvider for Transaction {
             _ => Err(Error::InvalidSigHash),
         }
     }
+
+    // for test
+    fn z_without_replace_script(&self, _index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
+        match sighash {
+            SigHash::All => {
+                let mut tx_bytes = self.serialize()?;
+                tx_bytes.append(&mut sighash.serialize().to_vec());
+
+                Ok(hash::hash256(&tx_bytes))
+            },
+            _ => Err(Error::InvalidSigHash),
+        }
+    }
 }
 
 #[cfg(test)]

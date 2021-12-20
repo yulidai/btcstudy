@@ -88,29 +88,44 @@ impl Script {
             if operator::evaluate_command(cmd, &mut stack, index, z_provider)? == false {
                 return Ok(false);
             }
+            if let Some(hash160) = Self::get_hash160_if_p2sh(&cmds) {
+                if operator::evaluate_p2sh(&mut cmds, &mut stack, &hash160)? == false {
+                    return Ok(false)
+                }
+            }
         }
 
         let ele = stack.pop()?;
         Ok(ele.len() > 0) // 0 is empty vec in stack
     }
 
-    pub fn is_p2sh(cmds: &Vec<CommandElement>) -> bool {
-        if cmds.len() != 4 || !cmds[1].is_data() || !cmds[3].is_data() {
-            return false;
+    pub fn get_hash160_if_p2sh(cmds: &Vec<CommandElement>) -> Option<Vec<u8>> {
+        if cmds.len() != 3 {
+            return None;
         }
-        match (&cmds[0], &cmds[2]) {
-            (CommandElement::Op(ops0), CommandElement::Op(ops1)) => *ops0 == Opcode::OpEqual && *ops1 == Opcode::OpHash160,
-            _ => false
+        match (&cmds[0], &cmds[1], &cmds[2]) {
+            (CommandElement::Op(ops0), CommandElement::Data(data), CommandElement::Op(ops1)) => {
+                if *ops0 == Opcode::OpEqual && *ops1 == Opcode::OpHash160 {
+                    Some(data.clone())
+                } else {
+                    None
+                }
+            }
+            _ => None
         }
+    }
+
+    pub fn cmds(&self) -> &Vec<CommandElement> {
+        &self.cmds
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Script;
-    use crate::script::{CommandElement, Opcode};
+    use crate::script::{CommandElement, Opcode, Script};
     use primitive_types::U256;
     use crate::transaction::{ZProvider, ZProviderMocker};
+    use crate::util::hash;
 
     #[test]
     fn script_evaluate_p2pk_success() {
@@ -223,14 +238,112 @@ mod tests {
     }
 
     #[test]
-    fn script_is_p2sh_true() {
-        let cmds = vec![Opcode::OpEqual.into(), vec![0u8].into(), Opcode::OpHash160.into(), vec![0u8].into()];
-        assert!(Script::is_p2sh(&cmds));
+    fn script_get_hash160_if_p2sh_true() {
+        let cmds = vec![Opcode::OpEqual.into(), vec![0u8].into(), Opcode::OpHash160.into()];
+        let hash160 = Script::get_hash160_if_p2sh(&cmds);
+        assert_eq!(hash160, Some(vec![0u8]));
     }
 
     #[test]
-    fn script_is_p2sh_false() {
-        let cmds = vec![Opcode::OpEqualverify.into(), vec![0u8].into(), Opcode::OpHash160.into(), vec![0u8].into()];
-        assert!(!Script::is_p2sh(&cmds));
+    fn script_get_hash160_if_p2sh_false() {
+        let cmds = vec![Opcode::OpEqualverify.into(), vec![0u8].into(), Opcode::OpHash160.into()];
+        let hash160 = Script::get_hash160_if_p2sh(&cmds);
+        assert!(hash160.is_none());
+    }
+
+    #[test]
+    fn script_p2sh_success() {
+        use crate::secp256k1::PrivateKey;
+        // test data
+        let z_raw = U256::one();
+        let z = ZProviderMocker(z_raw);
+
+        let sk1 = PrivateKey::new(911.into()).unwrap();
+        let sk1_pk = sk1.pk_point().clone();
+        let sk1_sig = sk1.sign_deterministic(z_raw).unwrap();
+
+        let sk2 = PrivateKey::new(500.into()).unwrap();
+        let sk2_pk = sk2.pk_point().clone();
+        let sk2_sig = sk2.sign_deterministic(z_raw).unwrap();
+
+        let script_redeem = Script::new(
+            vec![
+                Opcode::OpCheckmultisig.into(),
+                Opcode::Op2.into(),
+                sk1_pk.sec_compressed().unwrap().into(),
+                sk2_pk.sec_compressed().unwrap().into(),
+                Opcode::Op2.into(),
+            ]
+        );
+
+        let script_redeem_hash = hash::hash160(&script_redeem.serialize().unwrap());
+        let script_pubkey = Script::new(
+            vec![
+                Opcode::OpEqual.into(),
+                script_redeem_hash.to_vec().into(),
+                Opcode::OpHash160.into(),
+            ]
+        );
+
+        let script_sig = Script::new(
+            vec![
+                script_redeem.serialize().unwrap().into(),
+                [hex::decode(sk1_sig.der()).unwrap(), vec![1u8]].concat().into(), // 1u8 for SigHash::All
+                [hex::decode(sk2_sig.der()).unwrap(), vec![1u8]].concat().into(),
+                Opcode::Op0.into()
+            ]
+        );
+
+        let combined_script = script_pubkey + script_sig;
+        let z = Box::new(z) as Box<dyn ZProvider>;
+        assert!(combined_script.evaluate(0, &z).unwrap());
+    }
+
+    #[test]
+    fn script_p2sh_fail() {
+        use crate::secp256k1::PrivateKey;
+        // test data
+        let z_raw = U256::one();
+        let z = ZProviderMocker(z_raw);
+
+        let sk1 = PrivateKey::new(911.into()).unwrap();
+        let sk1_pk = sk1.pk_point().clone();
+        let sk1_sig = sk1.sign_deterministic(z_raw).unwrap();
+
+        let sk2 = PrivateKey::new(500.into()).unwrap();
+        let sk2_pk = sk2.pk_point().clone();
+        let sk2_sig = sk2.sign_deterministic(222.into()).unwrap(); // sign different content
+
+        let script_redeem = Script::new(
+            vec![
+                Opcode::OpCheckmultisig.into(),
+                Opcode::Op2.into(),
+                sk1_pk.sec_compressed().unwrap().into(),
+                sk2_pk.sec_compressed().unwrap().into(),
+                Opcode::Op2.into(),
+            ]
+        );
+
+        let script_redeem_hash = hash::hash160(&script_redeem.serialize().unwrap());
+        let script_pubkey = Script::new(
+            vec![
+                Opcode::OpEqual.into(),
+                script_redeem_hash.to_vec().into(),
+                Opcode::OpHash160.into(),
+            ]
+        );
+
+        let script_sig = Script::new(
+            vec![
+                script_redeem.serialize().unwrap().into(),
+                [hex::decode(sk1_sig.der()).unwrap(), vec![1u8]].concat().into(), // 1u8 for SigHash::All
+                [hex::decode(sk2_sig.der()).unwrap(), vec![1u8]].concat().into(),
+                Opcode::Op0.into()
+            ]
+        );
+
+        let combined_script = script_pubkey + script_sig;
+        let z = Box::new(z) as Box<dyn ZProvider>;
+        assert!(!combined_script.evaluate(0, &z).unwrap());
     }
 }

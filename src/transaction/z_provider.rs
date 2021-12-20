@@ -9,6 +9,9 @@ pub trait ZProvider {
         let z = self.z(index, sighash)?;
         Ok(U256::from_big_endian(&z))
     }
+
+    // for test
+    fn z_without_replace_script(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error>;
 }
 
 // mock
@@ -20,5 +23,9 @@ impl ZProvider for ZProviderMocker {
         self.0.to_big_endian(&mut result);
 
         Ok(result)
+    }
+
+    fn z_without_replace_script(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
+        self.z(index, sighash)
     }
 }

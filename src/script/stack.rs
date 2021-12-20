@@ -1,5 +1,6 @@
 use super::Error;
 
+#[derive(Debug)]
 pub struct Stack(Vec<Vec<u8>>);
 
 impl Stack {

@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Reader<'a> {
     index: usize,
     bytes: &'a [u8],
@@ -22,6 +23,10 @@ impl<'a> Reader<'a> {
     pub fn used(&self) -> usize {
         self.index
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.index >= self.bytes.len()
+    }
 }
 
 #[cfg(test)]
@@ -32,6 +37,7 @@ mod tests {
     fn reader_content() {
         let mut reader = Reader::new(&[1u8; 5]);
         assert_eq!(reader.more(3).unwrap(), &[1u8; 3]);
+        assert_eq!(reader.is_empty(), false);
     }
 
     #[test]
@@ -39,5 +45,6 @@ mod tests {
         let mut reader = Reader::new(&[0u8; 5]);
         reader.more(5).unwrap();
         assert_eq!(reader.more(0).unwrap(), []);
+        assert_eq!(reader.is_empty(), true);
     }
 }

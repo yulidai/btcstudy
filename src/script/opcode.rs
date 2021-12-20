@@ -1,4 +1,6 @@
-#[derive(Debug, Copy, Clone, PartialEq)]
+use std::fmt;
+
+#[derive(Copy, Clone, PartialEq)]
 pub enum Opcode {
     Op0 = 0x00,
     Op1 = 0x51,
@@ -59,6 +61,38 @@ impl Opcode {
 
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+}
+
+impl fmt::Debug for Opcode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let result = match self {
+            Self::Op0 => "Op0",
+            Self::Op1 => "Op1",
+            Self::Op2 => "Op2",
+            Self::Op3 => "Op3",
+            Self::Op4 => "Op4",
+            Self::Op5 => "Op5",
+            Self::Op6 => "Op6",
+            Self::Op7 => "Op7",
+            Self::Op8 => "Op8",
+            Self::Op9 => "Op9",
+            Self::Op10 => "Op10",
+            Self::Op11 => "Op11",
+            Self::Op12 => "Op12",
+            Self::Op13 => "Op13",
+            Self::Op14 => "Op14",
+            Self::Op15 => "Op15",
+            Self::Op16 => "Op16",
+            Self::OpDup => "OpDup",
+            Self::OpEqual => "OpEqual",
+            Self::OpEqualverify => "OpEqualverify",
+            Self::OpAdd => "OpAdd",
+            Self::OpHash160 => "OpHash160",
+            Self::OpChecksig => "OpChecksig",
+            Self::OpCheckmultisig => "OpCheckmultisig",
+        };
+        write!(f, "{}", result)
     }
 }
 

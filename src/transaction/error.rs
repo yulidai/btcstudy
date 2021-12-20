@@ -8,6 +8,8 @@ pub enum Error {
     InvalidTxIn,
     InvalidTxFee,
     InvalidSigHash,
+    NotCoinbaseTx,
+    NotEnoughByteForParseTxIn,
 
     Reqwest(ReqwestError),
     HexDecode(FromHexError),

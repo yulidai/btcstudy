@@ -1,38 +1,40 @@
-use crate::util::math;
-use crate::script::Script;
+use crate::util::{varint, Reader};
 use super::Error;
+use std::fmt;
+use std::convert::TryInto;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TxOut {
     amount: u64,
-    script: Script,
+    script: Vec<u8>,
 }
 
 impl TxOut {
-    pub fn new(amount: u64, script: Script) -> Self {
+    pub fn new(amount: u64, script: Vec<u8>) -> Self {
         Self { amount, script }
     }
 
-    pub fn parse(bytes: &[u8]) -> Result<(Self, usize), Error> {
-        let len = bytes.len();
-        let mut index = 0;
+    pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
+        let mut reader = Reader::new(bytes);
+        Self::parse_reader(&mut reader)
+    }
 
-        index = math::check_range_add_with_max(index, 8, len)?;
-        let mut param: [u8; 8] = Default::default();
-        param.copy_from_slice(&bytes[(index-8)..index]);
-        let amount = u64::from_le_bytes(param);
+    pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
+        let mut amount: [u8; 8] = Default::default();
+        amount.copy_from_slice(reader.more(8)?);
+        let amount = u64::from_le_bytes(amount);
 
-        let (script, used) = Script::parse(&bytes[index..]).expect("script parse error");
-        index = math::check_range_add_with_max(index, used, len)?;
+        let script_len = varint::decode_with_reader(reader)?;
+        let script = reader.more(script_len)?.to_vec();
 
-        let result = Self { amount, script };
-        Ok((result, index))
+        Ok(Self { amount, script })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         let mut result = Vec::new();
         result.append(&mut self.amount.to_le_bytes().to_vec());
-        result.append(&mut self.script.serialize().expect("script serialize error"));
+        result.append(&mut varint::encode(self.script.len().try_into().unwrap()));
+        result.append(&mut self.script.clone());
 
         Ok(result)
     }
@@ -41,11 +43,19 @@ impl TxOut {
         self.amount
     }
 
-    pub fn script(&self) -> &Script {
+    pub fn script(&self) -> &Vec<u8> {
         &self.script
     }
 }
 
+impl fmt::Debug for TxOut {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TxOut")
+            .field("amount", &self.amount)
+            .field("script", &hex::encode(&self.script))
+            .finish()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -54,9 +64,7 @@ mod tests {
     #[test]
     fn tx_out_parse_serialize() {
         let bytes = hex::decode("a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac").unwrap();
-        let (tx_out, used) = TxOut::parse(&bytes).unwrap();
-        assert_eq!(used, 34);
-
+        let tx_out = TxOut::parse(&bytes).unwrap();
         let bytes_serialized = tx_out.serialize().unwrap();
         assert_eq!(bytes, bytes_serialized);
     }

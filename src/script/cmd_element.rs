@@ -1,4 +1,4 @@
-use crate::util::math;
+use crate::util::Reader;
 use super::{Opcode, Error};
 use std::fmt;
 use std::convert::{TryFrom, From};
@@ -10,46 +10,32 @@ pub enum CommandElement {
 }
 
 impl CommandElement {
-    // @return (Self, bytes_used)
-    pub fn parse(bytes: &[u8]) -> Result<(Self, usize), Error> {
-        let len = bytes.len();
-        if len == 0 {
-            return Err(Error::EmptyBytes);
-        }
+    pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
+        let mut reader = Reader::new(bytes);
+        Self::parse_reader(&mut reader)
+    }
 
-        let mut index = 0;
+    pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
         let payload_len;
-        let byte = bytes[index];
+        let byte = reader.more(1)?[0];
         match byte {
             1..=75 => payload_len = byte as usize,
-            76 => {
-                index = math::check_range_add(index, 1, len)?;
-                payload_len = bytes[index] as usize;
-            },
+            76 => payload_len = reader.more(1)?[0] as usize,
             77 => {
-                index = math::check_range_add(index, 2, len)?;
-                payload_len = (bytes[index-1] as usize) + (bytes[index] as usize) << 8; // little_endian
+                payload_len = (reader.more(1)?[0] as usize) + (reader.more(1)?[0] as usize) << 8; // little_endian
                 if payload_len > 520 {
                     return Err(Error::TooLongBytes);
                 }
             },
             _ => {
                 match Opcode::from_u8(byte) {
-                    Some(code) => {
-                        let result = (Self::Op(code), 1);
-                        return Ok(result);
-                    },
+                    Some(code) => return Ok(Self::Op(code)),
                     None => return Err(Error::InvalidOpcode),
                 };
             }
         }
-
-        let index_fst = math::check_range_add(index, 1, len)?;
-        let index_lst = math::check_range_add(index, payload_len, len)?;
-        let data = bytes[index_fst..(index_lst+1)].to_vec();
-
-        let result = (Self::Data(data), (index_lst+1));
-        Ok(result)
+        let data = reader.more(payload_len)?.to_vec();
+        Ok(Self::Data(data))
     }
 
     pub fn serialize(&self, result: &mut Vec<u8>) -> Result<(), Error> {
@@ -98,8 +84,8 @@ impl CommandElement {
 impl fmt::Debug for CommandElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
-            Self::Op(code) => format!("CommandElement::OpCode({:x})", code.value()),
-            Self::Data(data) => format!("CommandElement::Data({})", hex::encode(data)),
+            Self::Op(code) => format!("OpCode({:?})", code),
+            Self::Data(data) => format!("Data({})", hex::encode(data)),
         };
         write!(f, "{}", msg)
     }

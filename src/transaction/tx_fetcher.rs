@@ -35,8 +35,7 @@ impl TxFetcher {
     pub fn fetch_without_cache(tx_hash: &Hash256Value, testnet: bool) -> Result<Transaction, Error> {
         let url = format!("{}/tx/{}/hex", Self::get_url(testnet), hex::encode(tx_hash));
         let body = reqwest::blocking::get(&url)?.text()?;
-        let body = hex::decode(body)?;
-        let (tx, _) = Transaction::parse(&body)?;
+        let tx = Transaction::parse(&hex::decode(body)?)?;
 
         Ok(tx)
     }

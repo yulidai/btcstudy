@@ -12,20 +12,20 @@ mod test {
     fn wallet_create_transaction() {
         let prev_tx = hash::convert_slice_into_hash256(&hex::decode("0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299").unwrap());
         let prev_index = PrevIndex::new(13);
-        let script = Script::new(vec![]);
+        let script = vec![];
         let sequence = Sequence::parse(&[0xffu8; 4]).unwrap();
         let tx_in = TxIn { prev_tx, prev_index, script, sequence };
 
         let change_amount = 33000000u64;
         let change_h160 = base58::decode_btc_addr("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2").unwrap();
         let change_h160 = hash::convert_slice_into_hash160(&change_h160[1..]); // skip network
-        let change_script = ScriptBuilder::p2pkh(&change_h160);
-        let change_output = TxOut::new(change_amount, change_script.clone());
+        let change_script = ScriptBuilder::p2pkh(&change_h160).raw_serialize().unwrap();
+        let change_output = TxOut::new(change_amount, change_script);
 
         let target_amount = 10000000u64;
         let target_h160 = base58::decode_btc_addr("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf").unwrap();
         let target_h160 = hash::convert_slice_into_hash160(&target_h160[1..]); // skip network
-        let target_script = ScriptBuilder::p2pkh(&target_h160);
+        let target_script = ScriptBuilder::p2pkh(&target_h160).raw_serialize().unwrap();
         let target_output = TxOut::new(target_amount, target_script);
 
         let version = Version::new(1);

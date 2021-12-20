@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
-use crate::util::math;
+use crate::util::{math, Reader};
 
 pub fn encode(num: u64) -> Vec<u8> {
     let mut result = Vec::new();
@@ -52,8 +52,20 @@ pub fn decode(bytes: &[u8]) -> Result<(usize, u8), &'static str> {
     Ok(result)
 }
 
+pub fn decode_with_reader(reader: &mut Reader) -> Result<usize, &'static str> {
+    let byte = reader.more(1)?[0];
+    Ok(match byte {
+        0xfd => u16::from_le_bytes(reader.more(2)?.try_into().unwrap()) as usize,
+        0xfe => u32::from_le_bytes(reader.more(4)?.try_into().unwrap()) as usize,
+        0xff => usize::from_le_bytes(reader.more(8)?.try_into().unwrap()),
+        _ => byte as usize
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::util::Reader;
+
     #[test]
     fn varint_encode_1() {
         assert_eq!(super::encode(252), vec![252u8]);
@@ -102,5 +114,40 @@ mod tests {
     #[test]
     fn varint_decode_5() {
         assert_eq!(super::decode(&[0xffu8, 0x6d, 0xc7, 0xed, 0x3e, 0x60, 0x10, 0, 0]).unwrap(), (18005558675309, 9));
+    }
+
+    #[test]
+    fn varint_decode_with_reader_1() {
+        let mut reader = Reader::new(&[252u8]);
+        assert_eq!(super::decode_with_reader(&mut reader).unwrap(), 252);
+        assert_eq!(reader.used(), 1);
+    }
+
+    #[test]
+    fn varint_decode_with_reader_2() {
+        let mut reader = Reader::new(&[0xfdu8, 0xff, 0]);
+        assert_eq!(super::decode_with_reader(&mut reader).unwrap(), 255);
+        assert_eq!(reader.used(), 3);
+    }
+
+    #[test]
+    fn varint_decode_with_reader_3() {
+        let mut reader = Reader::new(&[0xfdu8, 0x2b, 0x02]);
+        assert_eq!(super::decode_with_reader(&mut reader).unwrap(), 555);
+        assert_eq!(reader.used(), 3);
+    }
+
+    #[test]
+    fn varint_decode_with_reader_4() {
+        let mut reader = Reader::new(&[0xfeu8, 0x7f, 0x11, 0x01, 0x00]);
+        assert_eq!(super::decode_with_reader(&mut reader).unwrap(), 70015);
+        assert_eq!(reader.used(), 5);
+    }
+
+    #[test]
+    fn varint_decode_with_reader_5() {
+        let mut reader = Reader::new(&[0xffu8, 0x6d, 0xc7, 0xed, 0x3e, 0x60, 0x10, 0, 0]);
+        assert_eq!(super::decode_with_reader(&mut reader).unwrap(), 18005558675309);
+        assert_eq!(reader.used(), 9);
     }
 }

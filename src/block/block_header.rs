@@ -47,6 +47,18 @@ impl BlockHeader {
         id.reverse(); // little endian
         hash::convert_slice_into_hash256(&id)
     }
+
+    pub fn bip9(&self) -> bool {
+        self.version.value() >> 29 == 1
+    }
+
+    pub fn bip91(&self) -> bool {
+        self.version.value() >> 4 & 1 == 1
+    }
+
+    pub fn bip141(&self) -> bool {
+        self.version.value() >> 1 & 1 == 1
+    }
 }
 
 impl fmt::Debug for BlockHeader {
@@ -95,5 +107,23 @@ mod tests {
     fn block_header_id() {
         let (header, _) = get_block_header();
         assert_eq!(hex::encode(header.id()), "0000000000000000007e9e4c586439b0cdbe13b1370bdd9435d76a644d047523");
+    }
+
+    #[test]
+    fn block_header_bip9() {
+        let (header, _) = get_block_header();
+        assert_eq!(header.bip9(), true);
+    }
+
+    #[test]
+    fn block_header_bip91() {
+        let (header, _) = get_block_header();
+        assert_eq!(header.bip91(), false);
+    }
+
+    #[test]
+    fn block_header_bip141() {
+        let (header, _) = get_block_header();
+        assert_eq!(header.bip141(), true);
     }
 }

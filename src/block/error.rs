@@ -3,6 +3,7 @@ use std::convert::From;
 #[derive(Debug)]
 pub enum Error {
     InvalidVersion,
+    InvalidTarget, // overflow
     Unknown(String),
 }
 

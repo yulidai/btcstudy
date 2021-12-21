@@ -7,6 +7,7 @@ use std::convert::{TryFrom, From};
 pub enum CommandElement {
     Op(Opcode),
     Data(Vec<u8>), // length <= 520
+    Unknown(u8),
 }
 
 impl CommandElement {
@@ -30,7 +31,7 @@ impl CommandElement {
             _ => {
                 match Opcode::from_u8(byte) {
                     Some(code) => return Ok(Self::Op(code)),
-                    None => return Err(Error::InvalidOpcode),
+                    None => return Ok(Self::Unknown(byte)), // coinbase tx can have any bytes
                 };
             }
         }
@@ -61,6 +62,7 @@ impl CommandElement {
                 }
                 result.append(&mut data.clone());
             }
+            CommandElement::Unknown(byte) => result.push(*byte),
         }
 
         Ok(())
@@ -68,15 +70,15 @@ impl CommandElement {
 
     pub fn is_data(&self) -> bool {
         match self {
-            CommandElement::Op(_) => false,
             CommandElement::Data(_) => true,
+            _ => false,
         }
     }
 
     pub fn is_op(&self) -> bool {
         match self {
             CommandElement::Op(_) => true,
-            CommandElement::Data(_) => false,
+            _ => false,
         }
     }
 }
@@ -86,6 +88,7 @@ impl fmt::Debug for CommandElement {
         let msg = match self {
             Self::Op(code) => format!("OpCode({:?})", code),
             Self::Data(data) => format!("Data({})", hex::encode(data)),
+            Self::Unknown(byte) => format!("Unknown({:x})", byte),
         };
         write!(f, "{}", msg)
     }

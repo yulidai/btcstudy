@@ -108,6 +108,7 @@ pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_
     match cmd {
         CommandElement::Op(op) => result = evaluate_opcode(op, stack, index, z_privoder)?,
         CommandElement::Data(data) => stack.push(data),
+        CommandElement::Unknown(byte) => return Err(Error::UnknownByteInScript(byte)),
     };
 
     Ok(result)

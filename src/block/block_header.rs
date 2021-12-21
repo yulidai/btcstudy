@@ -65,6 +65,10 @@ impl BlockHeader {
 
         Ok(proof < target)
     }
+
+    pub fn difficulty(&self) -> Result<U256, Error> {
+        self.bits.to_diff()
+    }
 }
 
 impl fmt::Debug for BlockHeader {
@@ -137,5 +141,11 @@ mod tests {
     fn block_header_check_pow() {
         let (header, _) = get_block_header();
         assert_eq!(header.check_pow().unwrap(), true);
+    }
+
+    #[test]
+    fn block_difficulty() {
+        let (header, _) = get_block_header();
+        assert_eq!(header.difficulty().unwrap(), 888171856257u64.into());
     }
 }

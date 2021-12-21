@@ -33,6 +33,14 @@ impl Bits {
 
         Ok(result)
     }
+
+    pub fn to_diff(&self) -> Result<U256, Error> {
+        // 0x1d00ffff is the target of basic diff
+        let difficulty_1_target = Self::parse(&[0xff, 0xff, 0, 0x1du8])?.to_target()?; // le
+
+        let target = self.to_target()?;
+        Ok(difficulty_1_target / target)
+    }
 }
 
 #[cfg(test)]
@@ -40,10 +48,18 @@ mod tests {
     use super::Bits;
 
     #[test]
-    fn bits_get_target() {
+    fn bits_to_target() {
         let bytes = hex::decode("e93c0118").unwrap();
         let bits = Bits::parse(&bytes).unwrap();
         let target = bits.to_target().unwrap();
         assert_eq!(format!("{:x}", target), "13ce9000000000000000000000000000000000000000000");
+    }
+
+    #[test]
+    fn bits_to_diff() {
+        let bytes = hex::decode("e93c0118").unwrap();
+        let bits = Bits::parse(&bytes).unwrap();
+        let diff = bits.to_diff().unwrap();
+        assert_eq!(format!("{}", diff), "888171856257");
     }
 }

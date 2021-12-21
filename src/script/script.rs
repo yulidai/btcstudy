@@ -114,6 +114,30 @@ impl Script {
     pub fn cmds(&self) -> &Vec<CommandElement> {
         &self.cmds
     }
+
+    pub fn get_block_height(&self) -> Result<u32, Error> {
+        let height_data = match self.cmds.last() {
+            Some(height) => height.clone(),
+            None => return Err(Error::EmptyScript),
+        };
+        let mut height_bytes = match height_data {
+            CommandElement::Data(bytes) => bytes,
+            _ => return Err(Error::InvalidBlockHeightInCoinbase),
+        };
+
+        if height_bytes.len() > 4 {
+            return Err(Error::InvalidBlockHeightInCoinbase);
+        }
+        while height_bytes.len() < 4 {
+            height_bytes.push(0u8);
+        }
+
+        let mut height = [0u8; 4];
+        height.copy_from_slice(&height_bytes);
+        let height = u32::from_le_bytes(height);
+
+        Ok(height)
+    }
 }
 
 #[cfg(test)]
@@ -349,5 +373,12 @@ mod tests {
             }
             _ => panic!("script not for expect")
         }
+    }
+
+    #[test]
+    fn script_parse_coinbase_block_height() {
+        let script = Script::parse(&hex::decode("5e03d71b07254d696e656420627920416e74506f6f6c20626a31312f4542312f4144362f43205914293101fabe6d6d678e2c8c34afc36896e7d9402824ed38e856676ee94bfdb0c6c4bcd8b2e5666a0400000000000000c7270000a5e00e00").unwrap()).unwrap();
+        let height = script.get_block_height().unwrap();
+        assert_eq!(height, 465879);
     }
 }

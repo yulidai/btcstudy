@@ -5,6 +5,7 @@ use crate::util::{
     varint,
     Reader,
 };
+use crate::script::Script;
 
 #[derive(Debug, Clone)]
 pub struct Transaction {
@@ -90,6 +91,17 @@ impl Transaction {
 
     pub fn is_coinbase(&self) -> bool {
         self.inputs.len() == 1 && self.inputs[0].is_coinbase()
+    }
+
+    // TODO move to intermediator
+    pub fn get_block_height_from_coinbase(&self) -> Result<u32, Error> {
+        if !self.is_coinbase() {
+            return Err(Error::NotCoinbaseTx);
+        }
+        let script = Script::parse_raw(&self.inputs[0].script).map_err(|_| Error::InvalidScript)?;
+        let height = script.get_block_height().map_err(|_| Error::InvalidBlockHeightInCoinbase)?;
+
+        Ok(height)
     }
 }
 

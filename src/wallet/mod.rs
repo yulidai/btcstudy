@@ -5,7 +5,7 @@ mod test {
     use crate::{
         transaction::{Transaction, TxIn, TxOut, PrevIndex, Sequence, Version, LockTime},
         util::{hash, base58},
-        script::{Script, ScriptBuilder},
+        script::ScriptBuilder,
     };
 
     #[test]

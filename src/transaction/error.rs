@@ -8,6 +8,8 @@ pub enum Error {
     InvalidTxIn,
     InvalidTxFee,
     InvalidSigHash,
+    InvalidBlockHeightInCoinbase,
+    InvalidScript,
     NotCoinbaseTx,
     NotEnoughByteForParseTxIn,
 

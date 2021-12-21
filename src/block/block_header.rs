@@ -1,5 +1,8 @@
 use super::{Version, BlockHash, MerkleRoot, Timestamp, Error};
-use crate::util::Reader;
+use crate::util::{
+    hash::{self, Hash256Value},
+    Reader,
+};
 use std::fmt;
 
 pub struct BlockHeader {
@@ -38,6 +41,12 @@ impl BlockHeader {
 
         result
     }
+
+    pub fn id(&self) -> Hash256Value {
+        let mut id = hash::hash256(&self.serialize()).to_vec();
+        id.reverse(); // little endian
+        hash::convert_slice_into_hash256(&id)
+    }
 }
 
 impl fmt::Debug for BlockHeader {
@@ -58,12 +67,16 @@ mod tests {
     use crate::util::Reader;
     use super::BlockHeader;
 
-    #[test]
-    fn block_header_parse_reader() {
+    fn get_block_header() -> (BlockHeader, Vec<u8>) {
         let bytes = hex::decode("020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d").unwrap();
         let mut reader = Reader::new(&bytes);
 
-        let header = BlockHeader::parse_reader(&mut reader).unwrap();
+        (BlockHeader::parse_reader(&mut reader).unwrap(), bytes)
+    }
+
+    #[test]
+    fn block_header_parse_reader() {
+        let (header, _) = get_block_header();
         assert_eq!(hex::encode(header.version.serialize()), "02000020");
         assert_eq!(hex::encode(header.prev_block.serialize()), "8ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd000000000000000000");
         assert_eq!(hex::encode(header.merkle_root.serialize()), "5b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be");
@@ -74,10 +87,13 @@ mod tests {
 
     #[test]
     fn block_header_serialize() {
-        let bytes = hex::decode("020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d").unwrap();
-        let mut reader = Reader::new(&bytes);
-
-        let header = BlockHeader::parse_reader(&mut reader).unwrap();
+        let (header, bytes) = get_block_header();
         assert_eq!(header.serialize(), bytes);
+    }
+
+    #[test]
+    fn block_header_id() {
+        let (header, _) = get_block_header();
+        assert_eq!(hex::encode(header.id()), "0000000000000000007e9e4c586439b0cdbe13b1370bdd9435d76a644d047523");
     }
 }

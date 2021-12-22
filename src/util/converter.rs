@@ -48,3 +48,7 @@ pub fn u32_into_usize(num: u32) -> Result<usize, &'static str> {
 pub fn usize_into_u32(num: usize) -> Result<u32, &'static str> {
     u32::try_from(num).map_err(|_| "failed convert usize into u32")
 }
+
+pub fn usize_into_u64(num: usize) -> Result<u64, &'static str> {
+    u64::try_from(num).map_err(|_| "failed convert usize into u64")
+}

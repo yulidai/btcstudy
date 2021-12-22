@@ -1,4 +1,4 @@
-use crate::util::{converter, Reader};
+use crate::util::{converter, varint, Reader};
 use crate::network::{Error, NetworkAddr};
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl VersionMessage {
         let addr_sender = NetworkAddr::parse(reader.more(26)?)?;
         let addr_receiver = NetworkAddr::parse(reader.more(26)?)?;
         let nonce = converter::le_bytes_into_u64(reader.more(8)?)?;
-        let agent_len = reader.more(1)?[0];
+        let agent_len = varint::decode_with_reader(reader)?;
         let agent = reader.more(agent_len.into())?.to_vec();
         let height = converter::le_bytes_into_u32(reader.more(4)?)?;
         let flag = match reader.more(1) {
@@ -36,6 +36,24 @@ impl VersionMessage {
         };
 
         Ok(Self { version, services, timestamp, addr_sender, addr_receiver, nonce, agent, height, flag, })
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let agent_len = converter::usize_into_u64(self.agent.len()).unwrap();
+
+        let mut result = Vec::new();
+        result.append(&mut self.version.to_le_bytes().to_vec());
+        result.append(&mut self.services.to_le_bytes().to_vec());
+        result.append(&mut self.timestamp.to_le_bytes().to_vec());
+        result.append(&mut self.addr_sender.serialize());
+        result.append(&mut self.addr_receiver.serialize());
+        result.append(&mut self.nonce.to_le_bytes().to_vec());
+        result.append(&mut varint::encode(agent_len));
+        result.append(&mut self.agent.clone());
+        result.append(&mut self.height.to_le_bytes().to_vec());
+        result.push(if self.flag { 1u8 } else { 0u8 });
+
+        result
     }
 }
 
@@ -65,5 +83,13 @@ mod tests {
         assert_eq!(String::from_utf8(message.agent.clone()).unwrap(), "/programmingbitcoin:0.1/");
         assert_eq!(message.height, 0);
         assert_eq!(message.flag, false);
+    }
+
+    #[test]
+    fn version_message_serialize() {
+        let bytes = hex::decode("7f11010000000000000000000000000000000000000000000000000000000000000000000000ffff00000000208d000000000000000000000000000000000000ffff00000000208d0000000000000000182f70726f6772616d6d696e67626974636f696e3a302e312f0000000000").unwrap();
+        let message = VersionMessage::parse(&bytes).unwrap();
+
+        assert_eq!(message.serialize(), bytes);
     }
 }

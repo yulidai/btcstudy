@@ -4,6 +4,7 @@ use std::convert::From;
 pub enum Error {
     NetworkMagicNotMatch,
     ChecksumNotMatch,
+    PayloadTooBig,
 
     Unknown(String),
 }

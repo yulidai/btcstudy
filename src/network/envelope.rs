@@ -38,6 +38,10 @@ impl NetworkEnvelope {
         command.copy_from_slice(reader.more(12)?);
         let payload_len = converter::le_bytes_into_u32(reader.more(4)?)?;
         let payload_len = converter::u32_into_usize(payload_len)?;
+        if payload_len > 0x2000000 {
+            return Err(Error::PayloadTooBig);
+        }
+
         let payload_checksum = reader.more(4)?.to_vec();
         let payload = reader.more(payload_len)?.to_vec();
 
@@ -47,6 +51,21 @@ impl NetworkEnvelope {
         }
 
         Ok(Self { command, payload })
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let payload_len = self.payload.len();
+        let payload_len = converter::usize_into_u32(payload_len).unwrap();
+        let checksum = &hash::hash256(&self.payload)[..4];
+
+        let mut result = Vec::new();
+        result.append(&mut NETWORK_MAGIC.to_vec());
+        result.append(&mut self.command.to_vec());
+        result.append(&mut payload_len.to_le_bytes().to_vec());
+        result.append(&mut checksum.to_vec());
+        result.append(&mut self.payload.clone());
+
+        result
     }
 
     pub fn command(&self) -> &[u8; 12] {
@@ -63,11 +82,12 @@ mod tests {
     use super::NetworkEnvelope;
 
     #[test]
-    fn network_envelope_parse() {
+    fn network_envelope_parse_serialize() {
         let bytes = hex::decode("f9beb4d976657261636b000000000000000000005df6e0e2").unwrap();
         let envelope = NetworkEnvelope::parse(&bytes).unwrap();
 
         assert_eq!(hex::encode(envelope.command()), "76657261636b000000000000");
         assert_eq!(envelope.payload().len(), 0);
+        assert_eq!(bytes, envelope.serialize());
     }
 }

@@ -1,5 +1,5 @@
 use crate::util::{converter, varint, Reader};
-use crate::network::{Error, NetworkAddr, NetworkEnvelope};
+use crate::network::{Command, Error, NetworkAddr, NetworkEnvelope};
 use std::convert::Into;
 
 #[derive(Debug)]
@@ -73,13 +73,8 @@ impl VersionMessage {
         }
     }
 
-    pub fn command() -> [u8; 12] {
-        let mut result = [0u8; 12];
-        for (i, byte) in b"version".iter().enumerate() {
-            result[i] = *byte;
-        }
-
-        result
+    pub fn command() -> Command {
+        Command::Version
     }
 }
 
@@ -93,7 +88,7 @@ impl Into<NetworkEnvelope> for VersionMessage {
 
 #[cfg(test)]
 mod tests {
-    use super::VersionMessage;
+    use crate::network::{Command, VersionMessage};
     use std::net::{Ipv4Addr, IpAddr};
 
     #[test]
@@ -129,6 +124,6 @@ mod tests {
 
     #[test]
     fn version_command() {
-        assert_eq!(hex::encode(VersionMessage::command()), "76657273696f6e0000000000");
+        assert_eq!(VersionMessage::command(), Command::Version);
     }
 }

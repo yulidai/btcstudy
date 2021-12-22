@@ -1,20 +1,19 @@
 use std::convert::Into;
-use crate::network::NetworkEnvelope;
+use crate::network::{Command, NetworkEnvelope};
 
 pub struct VerackMessage {}
 
 impl VerackMessage {
-    pub fn command() -> [u8; 12] {
-        let mut result = [0u8; 12];
-        for (i, byte) in b"verack".iter().enumerate() {
-            result[i] = *byte;
-        }
+    pub fn new() -> Self {
+        Self {}
+    }
 
-        result
+    pub fn command() -> Command {
+        Command::Verack
     }
 }
 
-impl Into<NetworkEnvelope> for Verack {
+impl Into<NetworkEnvelope> for VerackMessage {
     fn into(self) -> NetworkEnvelope {
         let command = Self::command();
         let payload = vec![];
@@ -25,10 +24,10 @@ impl Into<NetworkEnvelope> for Verack {
 
 #[cfg(test)]
 mod tests {
-    use super::VerackMessage;
+    use crate::network::{Command, VerackMessage};
 
     #[test]
     fn verack_message_command() {
-        assert_eq!(hex::encode(VerackMessage::command()), "76657261636b000000000000");
+        assert_eq!(VerackMessage::command(), Command::Verack);
     }
 }

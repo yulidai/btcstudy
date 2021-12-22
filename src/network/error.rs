@@ -6,6 +6,8 @@ pub enum Error {
     ChecksumNotMatch,
     PayloadTooBig,
 
+    InvalidNetworkAddr,
+
     Unknown(String),
 }
 

@@ -1,7 +1,9 @@
 use crate::util::Reader;
 use super::Error;
 use primitive_types::U256;
+use std::convert::TryInto;
 
+#[derive(Debug, PartialEq)]
 pub struct Bits(u32);
 
 impl Bits {
@@ -20,6 +22,40 @@ impl Bits {
 
     pub fn serialize(&self) -> [u8; 4] {
         self.0.to_le_bytes()
+    }
+
+    pub fn from_target(target: U256) -> Result<Self, Error> {
+        let mut target_be_bytes = vec![0u8; 32];
+        target.to_big_endian(&mut target_be_bytes);
+
+        // remove prefix zero
+        while let Some(byte) = target_be_bytes.first() {
+            if *byte != 0 {
+                break;
+            }
+            target_be_bytes.remove(0);
+        }
+        // add prefix-zero if need
+        if let Some(byte) = target_be_bytes.first() {
+            if *byte > 0x7fu8 {
+                target_be_bytes.insert(0, 0x00);
+            }
+        }
+
+        let exponent: u8 = target_be_bytes.len().try_into().map_err(|_| Error::InvalidTarget)?;
+        while target_be_bytes.len() < 3 {
+            target_be_bytes.push(0);
+        }
+        while target_be_bytes.len() > 3 {
+            target_be_bytes.pop();
+        }
+        target_be_bytes.insert(0, exponent);
+
+        let mut result = [0u8; 4];
+        result.copy_from_slice(&target_be_bytes[..]);
+        let result = u32::from_be_bytes(result);
+
+        Ok(Self(result))
     }
 
     pub fn to_target(&self) -> Result<U256, Error> {
@@ -61,5 +97,16 @@ mod tests {
         let bits = Bits::parse(&bytes).unwrap();
         let diff = bits.to_diff().unwrap();
         assert_eq!(format!("{}", diff), "888171856257");
+    }
+
+    #[test]
+    fn bits_from_target() {
+        let bytes = hex::decode("e93c0118").unwrap();
+        let bits = Bits::parse(&bytes).unwrap();
+
+        let target = bits.to_target().unwrap();
+        let bits_new = Bits::from_target(target).unwrap();
+
+        assert_eq!(bits, bits_new);
     }
 }

@@ -36,6 +36,14 @@ impl NetworkAddr {
 
         result
     }
+
+    pub fn default() -> Self {
+        Self {
+            services: 0,
+            ip: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            port: 8333,
+        }
+    }
 }
 
 fn bytes_to_ip(bytes: &[u8]) -> Result<IpAddr, &'static str> {

@@ -23,6 +23,10 @@ impl fmt::Debug for NetworkEnvelope {
 }
 
 impl NetworkEnvelope {
+    pub fn new(command: [u8; 12], payload: Vec<u8>) -> Self {
+        Self { command, payload }
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         let mut reader = Reader::new(bytes);
         Self::parse_reader(&mut reader)

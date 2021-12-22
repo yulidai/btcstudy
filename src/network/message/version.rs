@@ -1,5 +1,6 @@
 use crate::util::{converter, varint, Reader};
-use crate::network::{Error, NetworkAddr};
+use crate::network::{Error, NetworkAddr, NetworkEnvelope};
+use std::convert::Into;
 
 #[derive(Debug)]
 pub struct VersionMessage {
@@ -55,6 +56,39 @@ impl VersionMessage {
 
         result
     }
+
+    pub fn default() -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        Self {
+            version: 70015,
+            services: 0,
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs(),
+            addr_sender: NetworkAddr::default(),
+            addr_receiver: NetworkAddr::default(),
+            nonce: 0,
+            agent: "/programmingbitcoin:0.1/".as_bytes().to_vec(),
+            height: 0,
+            flag: false,
+        }
+    }
+
+    pub fn command() -> [u8; 12] {
+        let mut result = [0u8; 12];
+        for (i, byte) in b"version".iter().enumerate() {
+            result[i] = *byte;
+        }
+
+        result
+    }
+}
+
+impl Into<NetworkEnvelope> for VersionMessage {
+    fn into(self) -> NetworkEnvelope {
+        let command = Self::command();
+        let payload = self.serialize();
+        NetworkEnvelope::new(command, payload)
+    }
 }
 
 #[cfg(test)]
@@ -91,5 +125,10 @@ mod tests {
         let message = VersionMessage::parse(&bytes).unwrap();
 
         assert_eq!(message.serialize(), bytes);
+    }
+
+    #[test]
+    fn version_command() {
+        assert_eq!(hex::encode(VersionMessage::command()), "76657273696f6e0000000000");
     }
 }

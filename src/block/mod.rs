@@ -9,6 +9,7 @@ mod bits;
 mod block_hash;
 mod block_header;
 mod version;
+pub mod helper;
 
 pub type Timestamp = Version;
 pub type MerkleRoot = BlockHash;

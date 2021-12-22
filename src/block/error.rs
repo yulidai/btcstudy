@@ -4,6 +4,7 @@ use std::convert::From;
 pub enum Error {
     InvalidVersion,
     InvalidTarget, // overflow
+    TimeDiffIsNegativeNumber,
     Unknown(String),
 }
 

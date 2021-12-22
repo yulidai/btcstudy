@@ -16,6 +16,11 @@ pub struct BlockHeader {
 }
 
 impl BlockHeader {
+    pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
+        let mut reader = Reader::new(bytes);
+        Self::parse_reader(&mut reader)
+    }
+
     pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
         let version = Version::parse(reader.more(4)?)?;
         let prev_block = BlockHash::parse(reader)?;

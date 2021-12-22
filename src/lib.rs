@@ -6,3 +6,4 @@ pub mod script;
 pub mod transaction;
 pub mod util;
 pub mod wallet;
+pub mod network;

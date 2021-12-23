@@ -5,8 +5,9 @@ use std::net::{
     IpAddr,
     TcpStream,
 };
-use std::io::Write;
+use std::io::{Read, Write};
 use crate::network::{Command, NetworkEnvelope, VersionMessage, VerackMessage, Error};
+use crate::util::io::ReaderManager;
 
 #[derive(Debug)]
 pub struct Node {
@@ -32,7 +33,8 @@ impl Node {
     }
 
     pub fn read(&mut self) -> Result<NetworkEnvelope, Error> {
-        NetworkEnvelope::parse_from_tcpstream(&mut self.stream)
+        let mut reader = ReaderManager::new(&mut self.stream as &mut dyn Read);
+        NetworkEnvelope::parse_reader(&mut reader)
     }
 
     pub fn handshake(&mut self) -> Result<(), Error> {
@@ -47,6 +49,7 @@ impl Node {
                     self.send(&VerackMessage::new().into())?;
                 },
                 Command::Verack => ack = true,
+                _ => {},
             }
         }
 

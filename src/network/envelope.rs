@@ -1,7 +1,10 @@
 use std::fmt;
-use std::net::TcpStream;
 use std::io::Read;
-use crate::util::{converter, hash, Reader};
+use crate::util::{
+    converter,
+    hash,
+    io::{ReaderManager, BytesReader},
+};
 use super::{Error, Command};
 
 pub const NETWORK_MAGIC: [u8; 4] = [0xf9, 0xbe, 0xb4, 0xd9];
@@ -29,49 +32,26 @@ impl NetworkEnvelope {
     }
 
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
-        let mut reader = Reader::new(bytes);
+        let mut bytes_reader = BytesReader::new(bytes);
+        let mut reader = ReaderManager::new(&mut bytes_reader as &mut dyn Read);
         Self::parse_reader(&mut reader)
     }
 
-    pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
+    pub fn parse_reader(reader: &mut ReaderManager) -> Result<Self, Error> {
         let network = reader.more(4)?;
         if network != NETWORK_MAGIC {
             return Err(Error::NetworkMagicNotMatch);
         }
 
-        let command = Command::parse(reader.more(12)?)?;
-        let payload_len = converter::le_bytes_into_u32(reader.more(4)?)?;
+        let command = Command::parse(&reader.more(12)?)?;
+        let payload_len = converter::le_bytes_into_u32(&reader.more(4)?)?;
         let payload_len = converter::u32_into_usize(payload_len)?;
         if payload_len > 0x2000000 {
             return Err(Error::PayloadTooBig);
         }
 
-        let payload_checksum = reader.more(4)?.to_vec();
+        let payload_checksum = reader.more(4)?;
         let payload = reader.more(payload_len)?.to_vec();
-
-        let checksum = &hash::hash256(&payload)[..4];
-        if checksum != &payload_checksum[..] {
-            return Err(Error::ChecksumNotMatch);
-        }
-
-        Ok(Self { command, payload })
-    }
-
-    pub fn parse_from_tcpstream(stream: &mut TcpStream) -> Result<Self, Error> {
-        let network = read_exact_bytes(stream, 4)?;
-        if network != NETWORK_MAGIC {
-            return Err(Error::NetworkMagicNotMatch);
-        }
-
-        let command = Command::parse(&read_exact_bytes(stream, 12)?)?;
-        let payload_len = converter::le_bytes_into_u32(&read_exact_bytes(stream, 4)?)?;
-        let payload_len = converter::u32_into_usize(payload_len)?;
-        if payload_len > 0x2000000 {
-            return Err(Error::PayloadTooBig);
-        }
-
-        let payload_checksum = read_exact_bytes(stream, 4)?.to_vec();
-        let payload = read_exact_bytes(stream, payload_len)?.to_vec();
 
         let checksum = &hash::hash256(&payload)[..4];
         if checksum != &payload_checksum[..] {
@@ -103,16 +83,6 @@ impl NetworkEnvelope {
     pub fn payload(&self) -> &Vec<u8> {
         &self.payload
     }
-}
-
-fn read_exact_bytes(stream: &mut TcpStream, len: usize) -> Result<Vec<u8>, Error> {
-    let mut buff = Vec::with_capacity(len);
-    for _ in 0..len {
-        buff.push(0);
-    }
-    stream.read_exact(&mut buff)?;
-
-    Ok(buff)
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use super::{Version, Bits, BlockHash, MerkleRoot, Timestamp, Error};
 use crate::util::{
     hash::{self, Hash256Value},
-    Reader,
+    io::{ReaderManager, BytesReader},
 };
 use std::fmt;
 use primitive_types::U256;
@@ -17,19 +17,20 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
-        let mut reader = Reader::new(bytes);
+        let mut reader = BytesReader::new(bytes);
+        let mut reader = ReaderManager::new(&mut reader);
         Self::parse_reader(&mut reader)
     }
 
-    pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
-        let version = Version::parse(reader.more(4)?)?;
+    pub fn parse_reader(reader: &mut ReaderManager) -> Result<Self, Error> {
+        let version = Version::parse(&reader.more(4)?)?;
         let prev_block = BlockHash::parse(reader)?;
         let merkle_root = MerkleRoot::parse(reader)?;
-        let timestamp = Timestamp::parse(reader.more(4)?)?;
+        let timestamp = Timestamp::parse(&reader.more(4)?)?;
         let bits = Bits::parse_reader(reader)?;
 
         let mut nonce = [0u8; 4];
-        nonce.copy_from_slice(reader.more(4)?);
+        nonce.copy_from_slice(&reader.more(4)?);
 
         Ok(Self { version, prev_block, merkle_root, timestamp, bits, nonce })
     }
@@ -91,14 +92,11 @@ impl fmt::Debug for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::Reader;
     use super::BlockHeader;
 
     fn get_block_header() -> (BlockHeader, Vec<u8>) {
         let bytes = hex::decode("020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d").unwrap();
-        let mut reader = Reader::new(&bytes);
-
-        (BlockHeader::parse_reader(&mut reader).unwrap(), bytes)
+        (BlockHeader::parse(&&bytes).unwrap(), bytes)
     }
 
     #[test]

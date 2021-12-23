@@ -1,6 +1,6 @@
 use crate::util::{
     hash::{self, Hash256Value},
-    Reader,
+    io::ReaderManager,
 };
 use super::Error;
 
@@ -14,8 +14,8 @@ impl BlockHash {
         hash::convert_slice_into_hash256(&result)
     }
 
-    pub fn parse(reader: &mut Reader) -> Result<Self, Error> {
-        let mut bytes = reader.more(32)?.to_vec();
+    pub fn parse(reader: &mut ReaderManager) -> Result<Self, Error> {
+        let mut bytes = reader.more(32)?;
         bytes.reverse(); // little endian
         let result = Self(hash::convert_slice_into_hash256(&bytes));
 

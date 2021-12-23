@@ -1,4 +1,4 @@
-use crate::util::Reader;
+use crate::util::io::{ReaderManager, BytesReader};
 use super::Error;
 use primitive_types::U256;
 use std::convert::TryInto;
@@ -8,13 +8,14 @@ pub struct Bits(u32);
 
 impl Bits {
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
-        let mut reader = Reader::new(bytes);
+        let mut reader = BytesReader::new(bytes);
+        let mut reader = ReaderManager::new(&mut reader);
         Self::parse_reader(&mut reader)
     }
 
-    pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
+    pub fn parse_reader(reader: &mut ReaderManager) -> Result<Self, Error> {
         let mut param = [0u8; 4];
-        param.copy_from_slice(reader.more(4)?);
+        param.copy_from_slice(&reader.more(4)?);
         let num = u32::from_le_bytes(param);
 
         Ok(Self(num))

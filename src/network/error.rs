@@ -1,5 +1,6 @@
 use std::convert::From;
 use std::io::Error as IoError;
+use crate::block::Error as BlockError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -9,9 +10,11 @@ pub enum Error {
 
     InvalidCommand,
     InvalidNetworkAddr,
+    InvalidTxLength,
 
     Unknown(String),
     Io(IoError),
+    Block(BlockError),
 }
 
 impl From<&str> for Error {
@@ -23,5 +26,11 @@ impl From<&str> for Error {
 impl From<IoError> for Error {
     fn from(e: IoError) -> Self {
         Self::Io(e)
+    }
+}
+
+impl From<BlockError> for Error {
+    fn from(e: BlockError) -> Self {
+        Self::Block(e)
     }
 }

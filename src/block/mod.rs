@@ -1,6 +1,6 @@
 pub use error::Error;
 pub use bits::Bits;
-pub use block_hash::BlockHash;
+pub use block_hash::{BlockHash, GENESIS_BLOCK_HASH};
 pub use block_header::BlockHeader;
 pub use version::Version;
 

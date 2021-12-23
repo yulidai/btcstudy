@@ -6,7 +6,8 @@ use std::net::{
     TcpStream,
 };
 use std::io::{Read, Write};
-use crate::network::{Command, NetworkEnvelope, VersionMessage, VerackMessage, Error};
+use crate::network::{BlockRange, Command, GetHeadersMessage, HeadersMessage, NetworkEnvelope, VersionMessage, VerackMessage, Error};
+use crate::block::GENESIS_BLOCK_HASH;
 use crate::util::io::ReaderManager;
 
 #[derive(Debug)]
@@ -42,7 +43,6 @@ impl Node {
         let (mut ack, mut version) = (false, false);
         while !ack || !version {
             let envelope = self.read()?;
-            println!("receive envelope: {:?}", envelope);
             match envelope.command() {
                 Command::Version => {
                     version = true;
@@ -50,6 +50,33 @@ impl Node {
                 },
                 Command::Verack => ack = true,
                 _ => {},
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn handle(&mut self) -> Result<(), Error> {
+        self.handshake()?;
+
+        let block_range = BlockRange {
+            first: GENESIS_BLOCK_HASH.into(),
+            last: [0u8; 32].into(),
+        };
+        let message = GetHeadersMessage { version: 70015, block_ranges: vec![block_range] };
+        self.send(&message.into())?;
+
+        while let Ok(envelope) = self.read() {
+            match envelope.command() {
+                Command::Headers => {
+                    let headers = HeadersMessage::parse(&envelope.payload())?;
+                    println!("get {} headers", headers.block_headers.len());
+                    if headers.block_headers.len() > 0 {
+                        println!("{:?}", headers.block_headers[0]);
+                    }
+                    // TODO check headers by pow and so on
+                },
+                _ => println!("get other envelops: {}", envelope.command().text()),
             }
         }
 
@@ -66,5 +93,11 @@ mod tests {
         // "72.48.253.168" is mainnet.programmingbitcoin.com
         let mut node = Node::new("72.48.253.168".parse().unwrap(), 8333);
         node.handshake().unwrap();
+    }
+
+    #[test]
+    fn node_handle() {
+        let mut node = Node::new("72.48.253.168".parse().unwrap(), 8333);
+        node.handle().unwrap();
     }
 }

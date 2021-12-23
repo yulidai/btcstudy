@@ -5,10 +5,13 @@ pub enum Command {
     Version,
     Verack,
     GetHeaders,
+    Headers,
+    Unknown, // remove in the future
 }
 
 impl Command {
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
+        println!("parse command: {:?}", String::from_utf8(bytes.to_vec()).unwrap());
         if bytes.len() != 12 {
             return Err(Error::InvalidCommand);
         }
@@ -28,7 +31,11 @@ impl Command {
             "version" => Self::Version,
             "verack" => Self::Verack,
             "getheaders" => Self::GetHeaders,
-            _ => return Err(Error::InvalidCommand),
+            "headers" => Self::Headers,
+            _ => {
+                println!("receive unknown command: {}", command);
+                Self::Unknown
+            }
         };
 
         Ok(command)
@@ -39,6 +46,8 @@ impl Command {
             Self::Version => b"version".to_vec(),
             Self::Verack => b"verack".to_vec(),
             Self::GetHeaders => b"getheaders".to_vec(),
+            Self::Headers => b"headers".to_vec(),
+            _ => panic!("cannot serialize unknown command"),
         };
 
         let mut result = [0u8; 12];
@@ -54,6 +63,8 @@ impl Command {
             Self::Version => "version",
             Self::Verack => "verack",
             Self::GetHeaders => "getheaders",
+            Self::Headers => "headers",
+            Self::Unknown => "unknown",
         }
     }
 }
@@ -83,6 +94,14 @@ mod tests {
         let bytes = hex::decode("676574686561646572730000").unwrap();
         let command = Command::parse(&bytes).unwrap();
         assert_eq!(command, Command::GetHeaders);
+        assert_eq!(command.serialize()[..], bytes[..]);
+    }
+
+    #[test]
+    fn network_command_parse_headers() {
+        let bytes = hex::decode("686561646572730000000000").unwrap();
+        let command = Command::parse(&bytes).unwrap();
+        assert_eq!(command, Command::Headers);
         assert_eq!(command.serialize()[..], bytes[..]);
     }
 }

@@ -1,4 +1,4 @@
-use crate::network::Error;
+use crate::network::{Command, Error, NetworkEnvelope};
 use crate::util::{
     converter,
     io::ReaderManager,
@@ -39,6 +39,18 @@ impl GetHeadersMessage {
         }
 
         Ok(Self { version, block_ranges })
+    }
+
+    pub fn command() -> Command {
+        Command::GetHeaders
+    }
+}
+
+impl Into<NetworkEnvelope> for GetHeadersMessage {
+    fn into(self) -> NetworkEnvelope {
+        let command = Self::command();
+        let payload = self.serialize();
+        NetworkEnvelope::new(command, payload)
     }
 }
 

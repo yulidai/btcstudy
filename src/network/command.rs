@@ -4,6 +4,7 @@ use super::Error;
 pub enum Command {
     Version,
     Verack,
+    GetHeaders,
 }
 
 impl Command {
@@ -26,6 +27,7 @@ impl Command {
         let command = match command.as_str() {
             "version" => Self::Version,
             "verack" => Self::Verack,
+            "getheaders" => Self::GetHeaders,
             _ => return Err(Error::InvalidCommand),
         };
 
@@ -36,6 +38,7 @@ impl Command {
         let bytes = match self {
             Self::Version => b"version".to_vec(),
             Self::Verack => b"verack".to_vec(),
+            Self::GetHeaders => b"getheaders".to_vec(),
         };
 
         let mut result = [0u8; 12];
@@ -50,6 +53,7 @@ impl Command {
         match self {
             Self::Version => "version",
             Self::Verack => "verack",
+            Self::GetHeaders => "getheaders",
         }
     }
 }
@@ -71,6 +75,14 @@ mod tests {
         let bytes = hex::decode("76657261636b000000000000").unwrap();
         let command = Command::parse(&bytes).unwrap();
         assert_eq!(command, Command::Verack);
+        assert_eq!(command.serialize()[..], bytes[..]);
+    }
+
+    #[test]
+    fn network_command_parse_getheaders() {
+        let bytes = hex::decode("676574686561646572730000").unwrap();
+        let command = Command::parse(&bytes).unwrap();
+        assert_eq!(command, Command::GetHeaders);
         assert_eq!(command.serialize()[..], bytes[..]);
     }
 }

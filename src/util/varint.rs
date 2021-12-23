@@ -1,6 +1,6 @@
-use std::convert::TryFrom;
-use std::convert::TryInto;
-use crate::util::{math, Reader};
+use std::convert::{TryFrom, TryInto};
+use std::io::Error as IoError;
+use crate::util::{math, Reader, io::ReaderManager};
 
 pub fn encode(num: u64) -> Vec<u8> {
     let mut result = Vec::new();
@@ -53,6 +53,16 @@ pub fn decode(bytes: &[u8]) -> Result<(usize, u8), &'static str> {
 }
 
 pub fn decode_with_reader(reader: &mut Reader) -> Result<usize, &'static str> {
+    let byte = reader.more(1)?[0];
+    Ok(match byte {
+        0xfd => u16::from_le_bytes(reader.more(2)?.try_into().unwrap()) as usize,
+        0xfe => u32::from_le_bytes(reader.more(4)?.try_into().unwrap()) as usize,
+        0xff => usize::from_le_bytes(reader.more(8)?.try_into().unwrap()),
+        _ => byte as usize
+    })
+}
+
+pub fn decode_with_reader_manager(reader: &mut ReaderManager) -> Result<usize, IoError> {
     let byte = reader.more(1)?[0];
     Ok(match byte {
         0xfd => u16::from_le_bytes(reader.more(2)?.try_into().unwrap()) as usize,

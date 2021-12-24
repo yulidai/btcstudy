@@ -6,6 +6,7 @@ pub enum Command {
     Verack,
     GetHeaders,
     Headers,
+    MerkleBlock,
     Unknown, // remove in the future
 }
 
@@ -32,6 +33,7 @@ impl Command {
             "verack" => Self::Verack,
             "getheaders" => Self::GetHeaders,
             "headers" => Self::Headers,
+            "merkleblock" => Self::MerkleBlock,
             _ => {
                 println!("receive unknown command: {}", command);
                 Self::Unknown
@@ -47,6 +49,7 @@ impl Command {
             Self::Verack => b"verack".to_vec(),
             Self::GetHeaders => b"getheaders".to_vec(),
             Self::Headers => b"headers".to_vec(),
+            Self::MerkleBlock => b"merkleblock".to_vec(),
             _ => panic!("cannot serialize unknown command"),
         };
 
@@ -64,6 +67,7 @@ impl Command {
             Self::Verack => "verack",
             Self::GetHeaders => "getheaders",
             Self::Headers => "headers",
+            Self::MerkleBlock => "merkleblock",
             Self::Unknown => "unknown",
         }
     }
@@ -102,6 +106,14 @@ mod tests {
         let bytes = hex::decode("686561646572730000000000").unwrap();
         let command = Command::parse(&bytes).unwrap();
         assert_eq!(command, Command::Headers);
+        assert_eq!(command.serialize()[..], bytes[..]);
+    }
+
+    #[test]
+    fn network_command_parse_merkle_block() {
+        let bytes = hex::decode("6d65726b6c65626c6f636b00").unwrap();
+        let command = Command::parse(&bytes).unwrap();
+        assert_eq!(command, Command::MerkleBlock);
         assert_eq!(command.serialize()[..], bytes[..]);
     }
 }

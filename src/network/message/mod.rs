@@ -6,6 +6,7 @@ pub use headers::HeadersMessage;
 
 mod version;
 mod verack;
+mod merkle_block;
 mod network_addr;
 mod get_headers;
 mod headers;

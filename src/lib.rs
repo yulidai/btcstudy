@@ -6,4 +6,5 @@ pub mod script;
 pub mod transaction;
 pub mod util;
 pub mod wallet;
+pub mod merkle_tree;
 pub mod network;

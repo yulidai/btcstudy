@@ -1,13 +1,13 @@
 use crate::util::hash::{self, Hash256Value};
 
-pub fn merkle_root(mut hashes: Vec<Hash256Value>) -> Option<Hash256Value> {
+pub fn merkle_root(mut hashes: Vec<Hash256Value>) -> Hash256Value {
     if hashes.len() == 0 {
-        return None;
+        return [0u8; 32];
     }
     while hashes.len() > 1 {
         hashes = merkle_parent_level(hashes);
     }
-    Some(hashes[0])
+    hashes[0]
 }
 
 pub fn merkle_parent_level(mut hashes: Vec<Hash256Value>) -> Vec<Hash256Value> {
@@ -55,7 +55,7 @@ mod tests {
             .map(|bytes| hex::decode(bytes).unwrap())
             .map(|bytes| hash::convert_slice_into_hash256(&bytes))
             .collect();
-        let root = super::merkle_root(hashes).unwrap();
+        let root = super::merkle_root(hashes);
         assert_eq!(hex::encode(&root), "acbcab8bcc1af95d8d563b77d24c3d19b18f1486383d75a5085c4e86c86beed6");
     }
 

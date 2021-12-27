@@ -24,8 +24,8 @@ impl BlockHeader {
 
     pub fn parse_reader(reader: &mut ReaderManager) -> Result<Self, Error> {
         let version = Version::parse(&reader.more(4)?)?;
-        let prev_block = BlockHash::parse(reader)?;
-        let merkle_root = MerkleRoot::parse(reader)?;
+        let prev_block = BlockHash::parse_reader(reader)?;
+        let merkle_root = MerkleRoot::parse_reader(reader)?;
         let timestamp = Timestamp::parse(&reader.more(4)?)?;
         let bits = Bits::parse_reader(reader)?;
 

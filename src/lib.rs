@@ -1,4 +1,5 @@
 pub mod block;
+pub mod bloom;
 pub mod field;
 pub mod field_ecc;
 pub mod secp256k1;

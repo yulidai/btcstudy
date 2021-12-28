@@ -11,6 +11,7 @@ pub enum Error {
     InvalidCommand,
     InvalidNetworkAddr,
     InvalidTxLength,
+    InvalidGetDataType,
 
     Unknown(String),
     Io(IoError),

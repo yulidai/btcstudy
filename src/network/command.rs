@@ -5,6 +5,7 @@ pub enum Command {
     Version,
     Verack,
     GetHeaders,
+    GetData,
     Headers,
     MerkleBlock,
     FilterLoad,
@@ -36,6 +37,7 @@ impl Command {
             "headers" => Self::Headers,
             "merkleblock" => Self::MerkleBlock,
             "filterload" => Self::FilterLoad,
+            "getdata" => Self::GetData,
             _ => {
                 println!("receive unknown command: {}", command);
                 Self::Unknown
@@ -46,16 +48,7 @@ impl Command {
     }
 
     pub fn serialize(&self) -> [u8; 12] {
-        let bytes = match self {
-            Self::Version => b"version".to_vec(),
-            Self::Verack => b"verack".to_vec(),
-            Self::GetHeaders => b"getheaders".to_vec(),
-            Self::Headers => b"headers".to_vec(),
-            Self::MerkleBlock => b"merkleblock".to_vec(),
-            Self::FilterLoad => b"filterload".to_vec(),
-            _ => panic!("cannot serialize unknown command"),
-        };
-
+        let bytes = self.text().as_bytes();
         let mut result = [0u8; 12];
         for (i, byte) in bytes.iter().enumerate() {
             result[i] = *byte;
@@ -72,6 +65,7 @@ impl Command {
             Self::Headers => "headers",
             Self::MerkleBlock => "merkleblock",
             Self::FilterLoad => "filterload",
+            Self::GetData => "getdata",
             Self::Unknown => "unknown",
         }
     }
@@ -126,6 +120,14 @@ mod tests {
         let bytes = hex::decode("66696c7465726c6f61640000").unwrap();
         let command = Command::parse(&bytes).unwrap();
         assert_eq!(command, Command::FilterLoad);
+        assert_eq!(command.serialize()[..], bytes[..]);
+    }
+
+    #[test]
+    fn network_command_parse_getdata() {
+        let bytes = hex::decode("676574646174610000000000").unwrap();
+        let command = Command::parse(&bytes).unwrap();
+        assert_eq!(command, Command::GetData);
         assert_eq!(command.serialize()[..], bytes[..]);
     }
 }

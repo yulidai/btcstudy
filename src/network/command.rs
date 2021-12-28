@@ -7,6 +7,7 @@ pub enum Command {
     GetHeaders,
     Headers,
     MerkleBlock,
+    FilterLoad,
     Unknown, // remove in the future
 }
 
@@ -34,6 +35,7 @@ impl Command {
             "getheaders" => Self::GetHeaders,
             "headers" => Self::Headers,
             "merkleblock" => Self::MerkleBlock,
+            "filterload" => Self::FilterLoad,
             _ => {
                 println!("receive unknown command: {}", command);
                 Self::Unknown
@@ -50,6 +52,7 @@ impl Command {
             Self::GetHeaders => b"getheaders".to_vec(),
             Self::Headers => b"headers".to_vec(),
             Self::MerkleBlock => b"merkleblock".to_vec(),
+            Self::FilterLoad => b"filterload".to_vec(),
             _ => panic!("cannot serialize unknown command"),
         };
 
@@ -68,6 +71,7 @@ impl Command {
             Self::GetHeaders => "getheaders",
             Self::Headers => "headers",
             Self::MerkleBlock => "merkleblock",
+            Self::FilterLoad => "filterload",
             Self::Unknown => "unknown",
         }
     }
@@ -114,6 +118,14 @@ mod tests {
         let bytes = hex::decode("6d65726b6c65626c6f636b00").unwrap();
         let command = Command::parse(&bytes).unwrap();
         assert_eq!(command, Command::MerkleBlock);
+        assert_eq!(command.serialize()[..], bytes[..]);
+    }
+
+    #[test]
+    fn network_command_parse_filter_load() {
+        let bytes = hex::decode("66696c7465726c6f61640000").unwrap();
+        let command = Command::parse(&bytes).unwrap();
+        assert_eq!(command, Command::FilterLoad);
         assert_eq!(command.serialize()[..], bytes[..]);
     }
 }

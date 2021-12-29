@@ -27,6 +27,10 @@ impl<'a> Reader<'a> {
     pub fn is_empty(&self) -> bool {
         self.index >= self.bytes.len()
     }
+
+    pub fn reset(&mut self) {
+        self.index = 0;
+    }
 }
 
 #[cfg(test)]

@@ -3,9 +3,16 @@ use super::{Error, TxIn, TxOut, Version, LockTime, SigHash, ZProvider};
 use crate::util::{
     hash::{self, Hash256Value},
     varint,
+    converter,
     Reader,
 };
 use crate::script::Script;
+
+#[derive(Debug, Clone)]
+pub struct SegwitField {
+    marker: u8,
+    flag: u8,
+}
 
 #[derive(Debug, Clone)]
 pub struct Transaction {
@@ -13,6 +20,7 @@ pub struct Transaction {
     pub inputs: Vec<TxIn>,
     pub outputs: Vec<TxOut>,
     pub locktime: LockTime,
+    pub segwit: Option<SegwitField>,
 }
 
 impl Transaction {
@@ -26,12 +34,59 @@ impl Transaction {
     }
 
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
-        println!(">>0 len: {}", bytes.len());
         let mut reader = Reader::new(bytes);
-        Self::parse_reader(&mut reader)
+        let is_segwit = reader.more(5)?[4] == 0u8;
+        reader.reset();
+
+        if is_segwit {
+            Self::parse_segwit(&mut reader)
+        } else {
+            Self::parse_legacy(&mut reader)
+        }
     }
 
-    pub fn parse_reader(reader: &mut Reader) -> Result<Self, Error> {
+    pub fn parse_segwit(reader: &mut Reader) -> Result<Self, Error> {
+        let version = Version::parse(&reader.more(4)?)?;
+        let marker = reader.more(1)?[0];
+        let flag = reader.more(1)?[0];
+        if marker != 0u8 || flag == 0u8 {
+            return Err(Error::InvalidSegwitTx);
+        }
+        let segwit = Some( SegwitField { marker, flag } );
+
+        let input_count = varint::decode_with_reader(reader)?;
+        let mut inputs = Vec::new();
+        for _ in 0..input_count {
+            let input = TxIn::parse_reader(reader)?;
+            inputs.push(input);
+        }
+
+        let output_count = varint::decode_with_reader(reader)?;
+        let mut outputs = Vec::new();
+        for _ in 0..output_count {
+            let output = TxOut::parse_reader(reader)?;
+            outputs.push(output);
+        }
+
+        for input in &mut inputs {
+            let num_items = varint::decode_with_reader(reader)?;
+            let mut items = Vec::new();
+            for _ in 0..num_items {
+                let item_len = varint::decode_with_reader(reader)?;
+                if item_len == 0 {
+                    items.push(vec![]); // why should push vec![0] in book?
+                } else {
+                    items.push(reader.more(item_len)?.to_vec());
+                }
+            }
+            input.set_witness(items);
+        }
+        let locktime = LockTime::parse(reader.more(4)?)?;
+
+        Ok(Self { version, inputs, outputs, locktime, segwit })
+    }
+
+    pub fn parse_legacy(reader: &mut Reader) -> Result<Self, Error> {
         let version = Version::parse(&reader.more(4)?)?;
 
         let input_count = varint::decode_with_reader(reader)?;
@@ -49,8 +104,9 @@ impl Transaction {
         }
 
         let locktime = LockTime::parse(reader.more(4)?)?;
+        let segwit = None;
 
-        Ok(Self { version, inputs, outputs, locktime })
+        Ok(Self { version, inputs, outputs, locktime, segwit })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
@@ -59,6 +115,10 @@ impl Transaction {
 
         let mut result = Vec::new();
         result.append(&mut self.version.serialize().to_vec());
+        if let Some(ref segwit) = &self.segwit {
+            result.push(segwit.marker);
+            result.push(segwit.flag);
+        }
         result.append(&mut varint::encode(u64::try_from(input_count).expect("failed to convert usize into u64 within Transaction::parse()")));
         for i in 0..input_count {
             result.append(&mut self.inputs[i].serialize()?);
@@ -67,6 +127,17 @@ impl Transaction {
         for i in 0..output_count {
             result.append(&mut self.outputs[i].serialize()?);
         }
+
+        for input in &self.inputs {
+            if let Some(ref witness) = input.witness {
+                result.append(&mut varint::encode( converter::usize_into_u64(witness.len())? ));
+                for item in witness {
+                    result.append(&mut varint::encode( converter::usize_into_u64(item.len())? ));
+                    result.append(&mut item.clone());
+                }
+            }
+        }
+
         result.append(&mut self.locktime.serialize().to_vec());
 
         Ok(result)
@@ -142,8 +213,16 @@ mod tests {
     use crate::transaction::{TxFetcher, Transaction, SigHash, ZProvider};
 
     #[test]
-    fn transaction_parse() {
+    fn transaction_parse_legacy() {
         let bytes = hex::decode("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600").unwrap();
+        let tx = Transaction::parse(&bytes).unwrap();
+        let bytes_serialized = tx.serialize().unwrap();
+        assert_eq!(bytes, bytes_serialized);
+    }
+
+    #[test]
+    fn transaction_parse_segwit() {
+        let bytes = hex::decode("0100000000010115e180dc28a2327e687facc33f10f2a20da717e5548406f7ae8b4c811072f8560100000000ffffffff0100b4f505000000001976a9141d7cd6c75c2e86f4cbf98eaed221b30bd9a0b92888ac02483045022100df7b7e5cda14ddf91290e02ea10786e03eb11ee36ec02dd862fe9a326bbcb7fd02203f5b4496b667e6e281cc654a2da9e4f08660c620a1051337fa8965f727eb19190121038262a6c6cec93c2d3ecd6c6072efea86d02ff8e3328bbd0242b20af3425990ac00000000").unwrap();
         let tx = Transaction::parse(&bytes).unwrap();
         let bytes_serialized = tx.serialize().unwrap();
         assert_eq!(bytes, bytes_serialized);

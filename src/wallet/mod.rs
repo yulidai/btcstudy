@@ -14,7 +14,8 @@ mod test {
         let prev_index = PrevIndex::new(13);
         let script = vec![];
         let sequence = Sequence::parse(&[0xffu8; 4]).unwrap();
-        let tx_in = TxIn { prev_tx, prev_index, script, sequence };
+        let witness = None;
+        let tx_in = TxIn { prev_tx, prev_index, script, sequence, witness };
 
         let change_amount = 33000000u64;
         let change_h160 = base58::decode_btc_addr("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2").unwrap();
@@ -32,7 +33,8 @@ mod test {
         let inputs = vec![tx_in];
         let outputs = vec![change_output, target_output];
         let locktime = LockTime::new(0);
-        let transaction = Transaction { version, inputs, outputs, locktime };
+        let segwit = None;
+        let transaction = Transaction { version, inputs, outputs, locktime, segwit };
 
         assert_eq!("cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11", hex::encode(transaction.id().unwrap()));
 

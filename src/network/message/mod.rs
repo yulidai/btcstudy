@@ -5,6 +5,7 @@ pub use get_data::GetDataMessage;
 pub use get_headers::{GetHeadersMessage, BlockRange};
 pub use headers::HeadersMessage;
 pub use merkle_block::MerkleBlockMessage;
+pub use filter_load::FilterLoadMessage;
 
 mod version;
 mod verack;

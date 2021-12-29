@@ -13,6 +13,7 @@ pub struct TxIn {
     pub prev_index: PrevIndex,
     pub script: Vec<u8>,
     pub sequence: Sequence,
+    pub witness: Option<Vec<Vec<u8>>>,
 }
 
 impl TxIn {
@@ -30,8 +31,9 @@ impl TxIn {
         let script = reader.more(script_len)?.to_vec();
 
         let sequence = Sequence::parse(reader.more(4)?)?;
+        let witness = None;
 
-        Ok(Self { prev_tx, prev_index, script, sequence })
+        Ok(Self { prev_tx, prev_index, script, sequence, witness })
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
@@ -65,15 +67,32 @@ impl TxIn {
     pub fn is_coinbase(&self) -> bool {
         self.prev_tx == [0u8; 32] && self.prev_index.value() == u32::MAX
     }
+
+    pub fn set_witness(&mut self, witness: Vec<Vec<u8>>) {
+        self.witness = Some(witness)
+    }
 }
 
 impl fmt::Debug for TxIn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let witness = match self.witness {
+            None => "None".to_string(),
+            Some(ref witness) => {
+                let mut r = String::new();
+                r.push('[');
+                for item in witness {
+                    r += &format!("{}, ", hex::encode(item));
+                }
+                r.push(']');
+                r
+            }
+        };
         f.debug_struct("TxIn")
             .field("prev_tx", &hex::encode(&self.prev_tx))
             .field("pref_index", &self.prev_index.value())
             .field("script", &hex::encode(&self.script))
             .field("sequence", &self.sequence.value())
+            .field("witness", &witness)
             .finish()
     }
 }

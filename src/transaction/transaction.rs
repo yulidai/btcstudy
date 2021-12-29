@@ -25,7 +25,7 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn id(&self) -> Result<Hash256Value, Error> {
-        let bytes = self.serialize()?;
+        let bytes = self.serialize_legacy()?;
         let mut result = hash::hash256(&bytes);
         result.reverse(); // little endian
         result = hash::convert_slice_into_hash256(&result);
@@ -143,6 +143,26 @@ impl Transaction {
         Ok(result)
     }
 
+    // for calculate TxHash
+    pub fn serialize_legacy(&self) -> Result<Vec<u8>, Error> {
+        let input_count = self.inputs.len();
+        let output_count = self.outputs.len();
+
+        let mut result = Vec::new();
+        result.append(&mut self.version.serialize().to_vec());
+        result.append(&mut varint::encode(u64::try_from(input_count).expect("failed to convert usize into u64 within Transaction::parse()")));
+        for i in 0..input_count {
+            result.append(&mut self.inputs[i].serialize()?);
+        }
+        result.append(&mut varint::encode(u64::try_from(output_count).expect("failed to convert usize into u64 within Transaction::parse()")));
+        for i in 0..output_count {
+            result.append(&mut self.outputs[i].serialize()?);
+        }
+        result.append(&mut self.locktime.serialize().to_vec());
+
+        Ok(result)
+    }
+
     pub fn fee(&self) -> Result<u64, Error> {
         let mut amount_in = 0;
         for input in &self.inputs {
@@ -174,6 +194,25 @@ impl Transaction {
 
         Ok(height)
     }
+
+    pub fn hash_prevouts(&self) -> Hash256Value {
+        let mut result = Vec::new();
+        for input in &self.inputs {
+            let mut prev_tx = input.prev_tx.to_vec();
+            prev_tx.reverse();
+            result.append(&mut prev_tx);
+            result.append(&mut input.prev_index.serialize().to_vec());
+        }
+        hash::hash256(&result)
+    }
+
+    pub fn hash_sequence(&self) -> Hash256Value {
+        let mut result = Vec::new();
+        for input in &self.inputs {
+            result.append(&mut input.sequence.serialize().to_vec());
+        }
+        hash::hash256(&result)
+    }
 }
 
 impl ZProvider for Transaction {
@@ -189,6 +228,29 @@ impl ZProvider for Transaction {
                 tx_bytes.append(&mut sighash.serialize().to_vec());
 
                 Ok(hash::hash256(&tx_bytes))
+            },
+            _ => Err(Error::InvalidSigHash),
+        }
+    }
+
+    fn z_bip143(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
+        let input = &self.inputs[index];
+        // let output_ref = input.get_output_ref()?;
+        match sighash {
+            SigHash::All => {
+                let mut result = Vec::new();
+                result.append(&mut self.version.serialize().to_vec());
+                result.append(&mut self.hash_prevouts().to_vec());
+                result.append(&mut self.hash_sequence().to_vec());
+
+                let mut input_prev_tx = input.prev_tx.to_vec();
+                input_prev_tx.reverse();
+                result.append(&mut input_prev_tx);
+                result.append(&mut input.prev_index.serialize().to_vec());
+
+                //TODO impl after reconstruct
+
+                Ok([0u8; 32])
             },
             _ => Err(Error::InvalidSigHash),
         }

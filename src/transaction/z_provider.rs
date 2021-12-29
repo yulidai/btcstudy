@@ -10,6 +10,8 @@ pub trait ZProvider {
         Ok(U256::from_big_endian(&z))
     }
 
+    fn z_bip143(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error>;
+
     // for test
     fn z_without_replace_script(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error>;
 }
@@ -26,6 +28,10 @@ impl ZProvider for ZProviderMocker {
     }
 
     fn z_without_replace_script(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
+        self.z(index, sighash)
+    }
+
+    fn z_bip143(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
         self.z(index, sighash)
     }
 }

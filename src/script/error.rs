@@ -32,6 +32,7 @@ pub enum Error {
     // Other
     Unknown(String),
     Transaction(TransactionError),
+    NotImpl,
 }
 
 impl From<&str> for Error {

@@ -1,7 +1,6 @@
 use std::ops::Add;
-use super::{CommandElement, operator, Stack, Error, Opcode};
+use super::{CommandElement, operator, Stack, Error, Opcode, ZProvider};
 use crate::util::{varint, Reader};
-use crate::transaction::ZProvider;
 
 #[derive(Debug, Clone)]
 pub struct Script {
@@ -138,13 +137,54 @@ impl Script {
 
         Ok(height)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.cmds.len() == 0
+    }
+
+    pub fn get_bottom_as_data(&self) -> Option<Vec<u8>> {
+        let element = match self.cmds.first() {
+            Some(ele) => ele,
+            None => return None,
+        };
+        match element {
+            CommandElement::Data(data) => Some(data.clone()),
+            _ => None,
+        }
+    }
+
+    // type mark
+
+    pub fn is_p2sh_pubkey(&self) -> bool {
+        let cmds = self.cmds();
+        if cmds.len() != 3 {
+            return false;
+        }
+        match (&cmds[0], &cmds[1], &cmds[2]) {
+            (CommandElement::Op(ops0), CommandElement::Data(data), CommandElement::Op(ops1)) => {
+                *ops0 == Opcode::OpEqual && data.len() == 20 && *ops1 == Opcode::OpHash160
+            }
+            _ => false
+        }
+    }
+
+    pub fn is_p2wpkh_pubkey(&self) -> bool {
+        let cmds = self.cmds();
+        if cmds.len() != 2 {
+            return false;
+        }
+        match (&cmds[0], &cmds[1]) {
+            (CommandElement::Op(ops0), CommandElement::Data(data)) => *ops0 == Opcode::Op0 && data.len() == 20,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::script::{CommandElement, Opcode, Script};
+    use crate::script::{CommandElement, Opcode, Script, ZProvider, ZProviderMocker, TransactionLegacyZProvider};
+    use crate::transaction::{Transaction, SigHash};
     use primitive_types::U256;
-    use crate::transaction::{ZProvider, ZProviderMocker};
     use crate::util::hash;
 
     #[test]
@@ -380,5 +420,20 @@ mod tests {
         let script = Script::parse(&hex::decode("5e03d71b07254d696e656420627920416e74506f6f6c20626a31312f4542312f4144362f43205914293101fabe6d6d678e2c8c34afc36896e7d9402824ed38e856676ee94bfdb0c6c4bcd8b2e5666a0400000000000000c7270000a5e00e00").unwrap()).unwrap();
         let height = script.get_block_height().unwrap();
         assert_eq!(height, 465879);
+    }
+
+    #[test]
+    fn script_transaction_z_sighash_all() {
+        let bytes = hex::decode("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf830\
+            3c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccf\
+            cf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8\
+            e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278\
+            afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88a\
+            c99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600").unwrap();
+        let tx = Transaction::parse(&bytes).unwrap();
+
+        let provider = TransactionLegacyZProvider::from(tx);
+        let z = provider.z(0, SigHash::All, None, None).unwrap();
+        assert_eq!("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", hex::encode(z));
     }
 }

@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use super::{Error, TxIn, TxOut, Version, LockTime, SigHash, ZProvider};
+use super::{Error, TxIn, TxOut, Version, LockTime, SigHash};
 use crate::util::{
     hash::{self, Hash256Value},
     varint,
@@ -10,8 +10,8 @@ use crate::script::Script;
 
 #[derive(Debug, Clone)]
 pub struct SegwitField {
-    marker: u8,
-    flag: u8,
+    pub marker: u8,
+    pub flag: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -195,84 +195,52 @@ impl Transaction {
         Ok(height)
     }
 
-    pub fn hash_prevouts(&self) -> Hash256Value {
-        let mut result = Vec::new();
-        for input in &self.inputs {
-            let mut prev_tx = input.prev_tx.to_vec();
-            prev_tx.reverse();
-            result.append(&mut prev_tx);
-            result.append(&mut input.prev_index.serialize().to_vec());
-        }
-        hash::hash256(&result)
-    }
-
-    pub fn hash_sequence(&self) -> Hash256Value {
-        let mut result = Vec::new();
-        for input in &self.inputs {
-            result.append(&mut input.sequence.serialize().to_vec());
-        }
-        hash::hash256(&result)
-    }
-}
-
-impl ZProvider for Transaction {
-    fn z(&self, _input: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
-        match sighash {
-            SigHash::All => {
-                let mut tx = self.clone();
-                for input in &mut tx.inputs {
-                    let output_ref = input.get_output_ref()?;
-                    input.script = output_ref.script().clone();
-                }
-                let mut tx_bytes = tx.serialize()?;
-                tx_bytes.append(&mut sighash.serialize().to_vec());
-
-                Ok(hash::hash256(&tx_bytes))
-            },
-            _ => Err(Error::InvalidSigHash),
-        }
-    }
-
-    fn z_bip143(&self, index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
-        let input = &self.inputs[index];
-        // let output_ref = input.get_output_ref()?;
+    pub fn hash_prevouts(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
         match sighash {
             SigHash::All => {
                 let mut result = Vec::new();
-                result.append(&mut self.version.serialize().to_vec());
-                result.append(&mut self.hash_prevouts().to_vec());
-                result.append(&mut self.hash_sequence().to_vec());
-
-                let mut input_prev_tx = input.prev_tx.to_vec();
-                input_prev_tx.reverse();
-                result.append(&mut input_prev_tx);
-                result.append(&mut input.prev_index.serialize().to_vec());
-
-                //TODO impl after reconstruct
-
-                Ok([0u8; 32])
+                for input in &self.inputs {
+                    let mut prev_tx = input.prev_tx.to_vec();
+                    prev_tx.reverse();
+                    result.append(&mut prev_tx);
+                    result.append(&mut input.prev_index.serialize().to_vec());
+                }
+                Ok(hash::hash256(&result))
             },
-            _ => Err(Error::InvalidSigHash),
+            _ => Err(Error::InvalidSigHash) // impl in the future
         }
     }
 
-    // for test
-    fn z_without_replace_script(&self, _index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
+    pub fn hash_sequence(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
         match sighash {
             SigHash::All => {
-                let mut tx_bytes = self.serialize()?;
-                tx_bytes.append(&mut sighash.serialize().to_vec());
-
-                Ok(hash::hash256(&tx_bytes))
+                let mut result = Vec::new();
+                for input in &self.inputs {
+                    result.append(&mut input.sequence.serialize().to_vec());
+                }
+                Ok(hash::hash256(&result))
             },
-            _ => Err(Error::InvalidSigHash),
+            _ => Err(Error::InvalidSigHash) // impl in the future
+        }
+    }
+
+    pub fn hash_outputs(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
+        match sighash {
+            SigHash::All => {
+                let mut result = Vec::new();
+                for output in &self.outputs {
+                    result.append(&mut output.serialize()?);
+                }
+                Ok(hash::hash256(&result))
+            },
+            _ => Err(Error::InvalidSigHash) // impl in the future
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::transaction::{TxFetcher, Transaction, SigHash, ZProvider};
+    use crate::transaction::{TxFetcher, Transaction};
 
     #[test]
     fn transaction_parse_legacy() {
@@ -325,12 +293,5 @@ mod tests {
         let fee = tx.fee().unwrap();
 
         assert!(fee > 0);
-    }
-
-    #[test]
-    fn transaction_z_sighash_all() {
-        let tx = get_tx_from_parsed();
-        let z = tx.z(0, SigHash::All).unwrap();
-        assert_eq!("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", hex::encode(z));
     }
 }

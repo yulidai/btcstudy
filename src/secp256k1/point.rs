@@ -20,8 +20,8 @@ impl S256Point {
             let alpha = S256FieldElementPCreator::from_field_element(alpha)?;
             let y = alpha.sqrt();
             let y = match bytes[0] {
-                2 => if y.inner().num() % 2 == U256::zero() { y } else { S256FieldElementPCreator::from_u256(S256Curve::n()) - y },
-                3 => if y.inner().num() % 2 == U256::one() { y } else { S256FieldElementPCreator::from_u256(S256Curve::n()) - y },
+                2 => if y.inner().num() % 2 == U256::zero() { y } else { S256FieldElementPCreator::from_u256(S256Curve::prime().0) - y },
+                3 => if y.inner().num() % 2 == U256::one() { y } else { S256FieldElementPCreator::from_u256(S256Curve::prime().0) - y },
                 _ => return Err("invalid bytes[0], must as 2, 3 or 4".into()),
             };
 
@@ -211,6 +211,12 @@ mod tests {
         let pk = sk.pk_point();
         let pk_sec = pk.sec_compressed().unwrap();
         assert_eq!(hex::encode(pk_sec), "0357a4f368868a8a6d572991e484e664810ff14c05c0fa023275251151fe0e53d1");
+    }
+
+    #[test]
+    fn s256_point_parse_2() {
+        let bytes = hex::decode("03ad1d8e89212f0b92c74d23bb710c00662ad1470198ac48c43f7d6f93a2a26873").unwrap();
+        S256Point::parse(&bytes).unwrap();
     }
 
     #[test]

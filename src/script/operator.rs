@@ -29,31 +29,48 @@ pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
     Ok(true)
 }
 
-pub fn verify_tx_input(tx: &Transaction, input_index: usize, prevout: Option<TxOut>) -> Result<bool, Error> {
+pub fn convert_script(tx: &Transaction, input_index: usize, prevout: Option<TxOut>) -> Result<(Script, Script, Box<dyn ZProvider>), Error> {
     let input = &tx.inputs[input_index]; // TODO check len
     let prevout = match prevout {
         Some(prevout) => prevout,
         None => input.get_output_ref()?
     };
 
-    let script_pubkey = Script::parse_raw(prevout.script())?;
-    let script_sig = Script::parse_raw(&input.script)?;
-    let (provider, combined_script) = if script_pubkey.is_p2wpkh_pubkey() && script_sig.is_empty() {
+    let mut script_pubkey = Script::parse_raw(prevout.script())?;
+    let mut script_sig = Script::parse_raw(&input.script)?;
+    let provider_box;
+
+    // check is p2sh or not
+    if script_pubkey.is_p2sh_pubkey() && script_sig.get_bottom_as_data().is_some() {
+        let redeem_script = script_sig.get_bottom_as_data().unwrap();
+        script_pubkey = Script::parse_raw(&redeem_script)?;
+
+        let mut script_sig_cmds = script_sig.cmds().clone();
+        script_sig_cmds.remove(0); // remove redeem script
+        script_sig = Script::new(script_sig_cmds);
+    }
+
+    // check is witness or not
+    if script_pubkey.is_p2wpkh_pubkey() && script_sig.is_empty() {
+        let pk_hash = hash::convert_slice_into_hash160(&script_pubkey.get_bottom_as_data().unwrap());
+        script_pubkey = ScriptBuilder::p2pkh(&pk_hash);
+        script_sig = Script::parse_witness(&input.witness).unwrap(); // witness as sig
+
         let mut provider = TransactionWitnessP2pkhZProvider::from(tx.clone());
         let cache_key = [input.prev_tx.to_vec(), input.prev_index.serialize().to_vec()].concat();
-        provider.prevout_cache.insert(cache_key, prevout);
-        let provider = Box::new(provider) as Box<dyn ZProvider>;
-
-        let pk_hash = hash::convert_slice_into_hash160(&script_pubkey.get_bottom_as_data().unwrap());
-        let script_pubkey = ScriptBuilder::p2pkh(&pk_hash);
-        let script_witness = Script::parse_witness(&input.witness).unwrap();
-
-        (provider, script_pubkey + script_witness)
+        provider.prevout_cache.insert(cache_key, (prevout, script_pubkey.clone()));
+        provider_box = Box::new(provider) as Box<dyn ZProvider>;
     } else {
         let provider = TransactionLegacyZProvider::from(tx.clone());
-        let provider = Box::new(provider) as Box<dyn ZProvider>;
-        (provider, script_pubkey + script_sig)
-    };
+        provider_box = Box::new(provider) as Box<dyn ZProvider>;
+    }
+
+    Ok((script_pubkey, script_sig, provider_box))
+}
+
+pub fn verify_tx_input(tx: &Transaction, input_index: usize, prevout: Option<TxOut>) -> Result<bool, Error> {
+    let (script_pubkey, script_sig, provider) = convert_script(tx, input_index, prevout)?;
+    let combined_script = script_pubkey + script_sig;
 
     Ok(combined_script.evaluate(input_index, &provider).unwrap())
 }
@@ -247,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn operator_verify_transaction_input_true() {
+    fn operator_verify_transaction_input_p2wpkh_true() {
         let bytes = hex::decode("01000000000102fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f00000000494830450221008b9d1dc26ba6a9cb62127b02742fa9d754cd3bebf337f7a55d114c8e5cdd30be022040529b194ba3f9281a99f2b1c0a19c0489bc22ede944ccf4ecbab4cc618ef3ed01eeffffffef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a0100000000ffffffff02202cb206000000001976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac9093510d000000001976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac000247304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee0121025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee635711000000").unwrap();
         let tx = Transaction::parse(&bytes).unwrap();
 
@@ -258,7 +275,7 @@ mod tests {
     }
 
     #[test]
-    fn operator_verify_transaction_input_false() {
+    fn operator_verify_transaction_input_p2wpkh_false() {
         let bytes = hex::decode("01000000000102fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f00000000494830450221008b9d1dc26ba6a9cb62127b02742fa9d754cd3bebf337f7a55d114c8e5cdd30be022040529b194ba3f9281a99f2b1c0a19c0489bc22ede944ccf4ecbab4cc618ef3ed01eeffffffef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a0100000000ffffffff02202cb206000000001976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac9093510d000000001976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac0002483045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec0121025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee635711000000").unwrap();
         let tx = Transaction::parse(&bytes).unwrap();
 
@@ -266,5 +283,25 @@ mod tests {
         let prevout = TxOut::parse(&prevout_bytes).unwrap();
 
         assert_eq!(super::verify_tx_input(&tx, 1, Some(prevout)).unwrap(), false);
+    }
+
+    #[test]
+    fn operator_verify_transaction_input_p2sh_p2wpkh_true() {
+        let bytes = hex::decode("01000000000101db6b1b20aa0fd7b23880be2ecbd4a98130974cf4748fb66092ac4d3ceb1a5477010000001716001479091972186c449eb1ded22b78e40d009bdf0089feffffff02b8b4eb0b000000001976a914a457b684d7f0d539a46a45bbc043f35b59d0d96388ac0008af2f000000001976a914fd270b1ee6abcaea97fea7ad0402e8bd8ad6d77c88ac02473044022047ac8e878352d3ebbde1c94ce3a10d057c24175747116f8288e5d794d12d482f0220217f36a485cae903c713331d877c1f64677e3622ad4010726870540656fe9dcb012103ad1d8e89212f0b92c74d23bb710c00662ad1470198ac48c43f7d6f93a2a2687392040000").unwrap();
+        let tx = Transaction::parse(&bytes).unwrap();
+
+        let prevout = TxOut::new(1000000000u64, hex::decode("a9144733f37cf4db86fbc2efed2500b4f4e49f31202387").unwrap());
+
+        assert_eq!(super::verify_tx_input(&tx, 0, Some(prevout)).unwrap(), true);
+    }
+
+    #[test]
+    fn operator_verify_transaction_input_p2sh_p2wpkh_false() {
+        let bytes = hex::decode("01000000000101db6b1b20aa0fd7b23880be2ecbd4a98130974cf4748fb66092ac4d3ceb1a5477010000001716001479091972186c449eb1ded22b78e40d009bdf0089feffffff02b8b4eb0b000000001976a914a457b684d7f0d539a46a45bbc043f35b59d0d96388ac0008af2f000000001976a914fd270b1ee6abcaea97fea7ad0402e8bd8ad6d77c88ac0247304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee012103ad1d8e89212f0b92c74d23bb710c00662ad1470198ac48c43f7d6f93a2a2687392040000").unwrap();
+        let tx = Transaction::parse(&bytes).unwrap();
+
+        let prevout = TxOut::new(1000000000u64, hex::decode("a9144733f37cf4db86fbc2efed2500b4f4e49f31202387").unwrap());
+
+        assert_eq!(super::verify_tx_input(&tx, 0, Some(prevout)).unwrap(), false);
     }
 }

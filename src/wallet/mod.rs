@@ -14,7 +14,7 @@ mod test {
         let prev_index = PrevIndex::new(13);
         let script = vec![];
         let sequence = Sequence::parse(&[0xffu8; 4]).unwrap();
-        let witness = None;
+        let witness = Vec::new();
         let tx_in = TxIn { prev_tx, prev_index, script, sequence, witness };
 
         let change_amount = 33000000u64;

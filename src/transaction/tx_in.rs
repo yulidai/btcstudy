@@ -13,7 +13,7 @@ pub struct TxIn {
     pub prev_index: PrevIndex,
     pub script: Vec<u8>,
     pub sequence: Sequence,
-    pub witness: Option<Vec<Vec<u8>>>,
+    pub witness: Vec<Vec<u8>>,
 }
 
 impl TxIn {
@@ -31,7 +31,7 @@ impl TxIn {
         let script = reader.more(script_len)?.to_vec();
 
         let sequence = Sequence::parse(reader.more(4)?)?;
-        let witness = None;
+        let witness = Vec::new();
 
         Ok(Self { prev_tx, prev_index, script, sequence, witness })
     }
@@ -69,24 +69,19 @@ impl TxIn {
     }
 
     pub fn set_witness(&mut self, witness: Vec<Vec<u8>>) {
-        self.witness = Some(witness)
+        self.witness = witness
     }
 }
 
 impl fmt::Debug for TxIn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let witness = match self.witness {
-            None => "None".to_string(),
-            Some(ref witness) => {
-                let mut r = String::new();
-                r.push('[');
-                for item in witness {
-                    r += &format!("{}, ", hex::encode(item));
-                }
-                r.push(']');
-                r
-            }
-        };
+        let mut witness = String::new();
+        witness.push('[');
+        for item in &self.witness {
+            witness += &format!("{}, ", hex::encode(item));
+        }
+        witness.push(']');
+
         f.debug_struct("TxIn")
             .field("prev_tx", &hex::encode(&self.prev_tx))
             .field("pref_index", &self.prev_index.value())

@@ -129,12 +129,13 @@ impl Transaction {
         }
 
         for input in &self.inputs {
-            if let Some(ref witness) = input.witness {
-                result.append(&mut varint::encode( converter::usize_into_u64(witness.len())? ));
-                for item in witness {
-                    result.append(&mut varint::encode( converter::usize_into_u64(item.len())? ));
-                    result.append(&mut item.clone());
-                }
+            if input.witness.len() == 0 {
+                continue;
+            }
+            result.append(&mut varint::encode( converter::usize_into_u64(input.witness.len())? ));
+            for item in &input.witness {
+                result.append(&mut varint::encode( converter::usize_into_u64(item.len())? ));
+                result.append(&mut item.clone());
             }
         }
 

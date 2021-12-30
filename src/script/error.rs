@@ -8,6 +8,7 @@ pub enum Error {
     InvalidBytes,
     InvalidOpcode,
     InvalidTxFee,
+    InvalidWitnessElement,
 
     // check
     SigHashIsNotTheSame,

@@ -39,6 +39,20 @@ impl CommandElement {
         Ok(Self::Data(data))
     }
 
+    pub fn parse_witness(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.is_empty() {
+            return Err(Error::InvalidWitnessElement);
+        }
+        if bytes.len() == 1 {
+            let code = match Opcode::from_u8(bytes[0]) {
+                Some(code) => Self::Op(code),
+                None => Self::Unknown(bytes[0]),
+            };
+            return Ok(code);
+        }
+        Ok(Self::Data(bytes.to_vec()))
+    }
+
     pub fn serialize(&self, result: &mut Vec<u8>) -> Result<(), Error> {
         match self {
             CommandElement::Op(op) => result.push(op.value()),

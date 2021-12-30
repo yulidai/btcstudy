@@ -53,6 +53,18 @@ impl Script {
         Ok(Self { cmds })
     }
 
+    // parse witness
+    pub fn parse_witness(bytes_vec: &Vec<Vec<u8>>) -> Result<Self, Error> {
+        let mut cmds = Vec::new();
+        for bytes in bytes_vec {
+            let ele = CommandElement::parse_witness(bytes)?;
+            cmds.push(ele);
+        }
+        cmds.reverse();
+
+        Ok(Self { cmds })
+    }
+
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
         let mut payload = self.raw_serialize()?;
         let len = payload.len() as u64;
@@ -174,7 +186,7 @@ impl Script {
             return false;
         }
         match (&cmds[0], &cmds[1]) {
-            (CommandElement::Op(ops0), CommandElement::Data(data)) => *ops0 == Opcode::Op0 && data.len() == 20,
+            (CommandElement::Data(data), CommandElement::Op(ops0)) => *ops0 == Opcode::Op0 && data.len() == 20,
             _ => false,
         }
     }

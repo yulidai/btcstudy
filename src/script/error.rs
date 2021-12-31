@@ -9,6 +9,7 @@ pub enum Error {
     InvalidOpcode,
     InvalidTxFee,
     InvalidWitnessElement,
+    InvalidRedeemScript,
 
     // check
     SigHashIsNotTheSame,

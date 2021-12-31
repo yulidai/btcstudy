@@ -155,7 +155,11 @@ impl Script {
     }
 
     pub fn get_bottom_as_data(&self) -> Option<Vec<u8>> {
-        let element = match self.cmds.first() {
+        self.get_index_as_data(0)
+    }
+
+    pub fn get_index_as_data(&self, i: usize) -> Option<Vec<u8>> {
+        let element = match self.cmds.get(i) {
             Some(ele) => ele,
             None => return None,
         };

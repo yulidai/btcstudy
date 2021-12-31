@@ -43,6 +43,11 @@ pub fn convert_script(tx: &Transaction, input_index: usize, prevout: Option<TxOu
     // check is p2sh or not
     if script_pubkey.is_p2sh_pubkey() && script_sig.get_bottom_as_data().is_some() {
         let redeem_script = script_sig.get_bottom_as_data().unwrap();
+        let redeem_hash_160 = &hash::hash160(&redeem_script)[..];
+        let redeem_hash_expect = &script_pubkey.get_index_as_data(1).unwrap()[..];
+        if redeem_hash_160 != redeem_hash_expect {
+            return Err(Error::InvalidRedeemScript);
+        }
         script_pubkey = Script::parse_raw(&redeem_script)?;
 
         let mut script_sig_cmds = script_sig.cmds().clone();

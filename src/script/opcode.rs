@@ -19,12 +19,15 @@ pub enum Opcode {
     Op14 = 0x5e,
     Op15 = 0x5f,
     Op16 = 0x60,
+    OpVerify = 0x69,
     OpDup = 0x76,
     OpEqual = 0x87,
     OpEqualverify = 0x88,
     OpAdd = 0x93,
     OpHash160 = 0xa9,
+    OpCodeseparator = 0xab,
     OpChecksig = 0xac,
+    OpChecksigverify = 0xad,
     OpCheckmultisig = 0xae,
 }
 
@@ -48,12 +51,15 @@ impl Opcode {
             0x5e => Some(Self::Op14),
             0x5f => Some(Self::Op15),
             0x60 => Some(Self::Op16),
+            0x69 => Some(Self::OpVerify),
             0x76 => Some(Self::OpDup),
             0x87 => Some(Self::OpEqual),
             0x88 => Some(Self::OpEqualverify),
             0x93 => Some(Self::OpAdd),
             0xa9 => Some(Self::OpHash160),
+            0xab => Some(Self::OpCodeseparator),
             0xac => Some(Self::OpChecksig),
+            0xad => Some(Self::OpChecksigverify),
             0xae => Some(Self::OpCheckmultisig),
             _ => None
         }
@@ -84,12 +90,15 @@ impl fmt::Debug for Opcode {
             Self::Op14 => "Op14",
             Self::Op15 => "Op15",
             Self::Op16 => "Op16",
+            Self::OpVerify => "OpVerify",
             Self::OpDup => "OpDup",
             Self::OpEqual => "OpEqual",
             Self::OpEqualverify => "OpEqualverify",
             Self::OpAdd => "OpAdd",
             Self::OpHash160 => "OpHash160",
+            Self::OpCodeseparator => "OpCodeseparator",
             Self::OpChecksig => "OpChecksig",
+            Self::OpChecksigverify => "OpChecksigverify",
             Self::OpCheckmultisig => "OpCheckmultisig",
         };
         write!(f, "{}", result)

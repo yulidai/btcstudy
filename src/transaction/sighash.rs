@@ -43,4 +43,11 @@ impl SigHash {
 
         result
     }
+
+    pub fn is_anyone_can_pay(&self) -> bool {
+        match self {
+            Self::All | Self::None | Self::Single => false,
+            _ => true,
+        }
+    }
 }

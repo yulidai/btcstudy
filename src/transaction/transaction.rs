@@ -197,35 +197,31 @@ impl Transaction {
     }
 
     pub fn hash_prevouts(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
-        match sighash {
-            SigHash::All => {
-                let mut result = Vec::new();
-                for input in &self.inputs {
-                    let mut prev_tx = input.prev_tx.to_vec();
-                    prev_tx.reverse();
-                    result.append(&mut prev_tx);
-                    result.append(&mut input.prev_index.serialize().to_vec());
-                }
-                Ok(hash::hash256(&result))
-            },
-            _ => Err(Error::InvalidSigHash) // impl in the future
+        if sighash.is_anyone_can_pay() {
+            return Err(Error::InvalidSigHash);
         }
+        let mut result = Vec::new();
+        for input in &self.inputs {
+            let mut prev_tx = input.prev_tx.to_vec();
+            prev_tx.reverse();
+            result.append(&mut prev_tx);
+            result.append(&mut input.prev_index.serialize().to_vec());
+        }
+        Ok(hash::hash256(&result))
     }
 
     pub fn hash_sequence(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
-        match sighash {
-            SigHash::All => {
-                let mut result = Vec::new();
-                for input in &self.inputs {
-                    result.append(&mut input.sequence.serialize().to_vec());
-                }
-                Ok(hash::hash256(&result))
-            },
-            _ => Err(Error::InvalidSigHash) // impl in the future
+        if sighash != SigHash::All {
+            return Ok([0u8; 32]);
         }
+        let mut result = Vec::new();
+        for input in &self.inputs {
+            result.append(&mut input.sequence.serialize().to_vec());
+        }
+        Ok(hash::hash256(&result))
     }
 
-    pub fn hash_outputs(&self, sighash: SigHash) -> Result<Hash256Value, Error> {
+    pub fn hash_outputs(&self, input_index: usize, sighash: SigHash) -> Result<Hash256Value, Error> {
         match sighash {
             SigHash::All => {
                 let mut result = Vec::new();
@@ -234,6 +230,12 @@ impl Transaction {
                 }
                 Ok(hash::hash256(&result))
             },
+            SigHash::Single if input_index < self.outputs.len() => {
+                let mut result = Vec::new();
+                result.append(&mut self.outputs[input_index].serialize()?);
+                Ok(hash::hash256(&result))
+            },
+            SigHash::Single => Ok([0u8; 32]),
             _ => Err(Error::InvalidSigHash) // impl in the future
         }
     }

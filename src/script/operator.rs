@@ -6,13 +6,13 @@ use super::error::Error;
 use primitive_types::U256;
 
 pub fn verify_tx(tx: &Transaction) -> Result<bool, Error> {
-    let z_provider = Box::new(TransactionLegacyZProvider::from(tx.clone())) as Box<dyn ZProvider>;
+    let mut z_provider = Box::new(TransactionLegacyZProvider::from(tx.clone())) as Box<dyn ZProvider>;
 
     let mut amount_in = 0;
     for (i, input) in tx.inputs.iter().enumerate() {
         let output_ref = input.get_output_ref()?;
         let combined_script = Script::parse_raw(&output_ref.script())? + Script::parse_raw(&input.script)?;
-        if !combined_script.evaluate(i, &z_provider)? {
+        if !combined_script.evaluate(i, &mut z_provider)? {
             return Ok(false);
         }
         amount_in += output_ref.amount();
@@ -65,6 +65,24 @@ pub fn convert_script(tx: &Transaction, input_index: usize, prevout: Option<TxOu
         let cache_key = [input.prev_tx.to_vec(), input.prev_index.serialize().to_vec()].concat();
         provider.prevout_cache.insert(cache_key, (prevout, script_pubkey.clone()));
         provider_box = Box::new(provider) as Box<dyn ZProvider>;
+    } else if script_pubkey.is_p2wsh_pubkey() && script_sig.is_empty() {
+        let script_witness = Script::parse_witness(&input.witness).unwrap();
+        let redeem_script = script_witness.get_bottom_as_data().unwrap();
+        let redeem_sha256 = &hash::sha256(&redeem_script)[..];
+        let redeem_hash_expect = &script_pubkey.get_bottom_as_data().unwrap()[..];
+        if redeem_sha256 != redeem_hash_expect {
+            return Err(Error::InvalidWitnessRedeemScript);
+        }
+        script_pubkey = Script::parse_raw(&redeem_script)?;
+
+        let mut script_sig_cmds = script_witness.cmds().clone();
+        script_sig_cmds.remove(0); // remove redeem script
+        script_sig = Script::new(script_sig_cmds);
+
+        let mut provider = TransactionWitnessP2pkhZProvider::from(tx.clone());
+        let cache_key = [input.prev_tx.to_vec(), input.prev_index.serialize().to_vec()].concat();
+        provider.prevout_cache.insert(cache_key, (prevout, script_pubkey.clone()));
+        provider_box = Box::new(provider) as Box<dyn ZProvider>;
     } else {
         let provider = TransactionLegacyZProvider::from(tx.clone());
         provider_box = Box::new(provider) as Box<dyn ZProvider>;
@@ -74,14 +92,14 @@ pub fn convert_script(tx: &Transaction, input_index: usize, prevout: Option<TxOu
 }
 
 pub fn verify_tx_input(tx: &Transaction, input_index: usize, prevout: Option<TxOut>) -> Result<bool, Error> {
-    let (script_pubkey, script_sig, provider) = convert_script(tx, input_index, prevout)?;
+    let (script_pubkey, script_sig, mut provider) = convert_script(tx, input_index, prevout)?;
     let combined_script = script_pubkey + script_sig;
 
-    Ok(combined_script.evaluate(input_index, &provider).unwrap())
+    Ok(combined_script.evaluate(input_index, &mut provider).unwrap())
 }
 
-pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
-    let pk = S256Point::parse(&pk).map_err(|_| Error::InvalidPublicKey)?;
+pub fn check_signature(pk_raw: Vec<u8>, sig_raw: Vec<u8>, index: usize, z_privoder: &mut Box<dyn ZProvider>) -> Result<bool, Error>  {
+    let pk = S256Point::parse(&pk_raw).map_err(|_| Error::InvalidPublicKey)?;
     let (sig, used) = Signature::parse_der(&sig_raw).map_err(|_| Error::InvalidSignature)?;
 
     let sighash = if used + 1 == sig_raw.len() {
@@ -94,7 +112,7 @@ pub fn check_signature(pk: Vec<u8>, sig_raw: Vec<u8>, index: usize, z_privoder: 
     Ok(sig.verify(z, pk))
 }
 
-pub fn check_multiple_signature(public_keys: Vec<Vec<u8>>, signatures: Vec<Vec<u8>>, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error>  {
+pub fn check_multiple_signature(public_keys: Vec<Vec<u8>>, signatures: Vec<Vec<u8>>, index: usize, z_privoder: &mut Box<dyn ZProvider>) -> Result<bool, Error>  {
     let mut pks = Vec::new();
     for public_key in public_keys {
         let pk = S256Point::parse(&public_key).map_err(|_| Error::InvalidPublicKey)?;
@@ -154,7 +172,7 @@ pub fn evaluate_p2sh(cmds: &mut Vec<CommandElement>, stack: &mut Stack, hash160:
     Ok(true)
 }
 
-pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
+pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_privoder: &mut Box<dyn ZProvider>) -> Result<bool, Error> {
     let mut result = true;
     match cmd {
         CommandElement::Op(op) => result = evaluate_opcode(op, stack, index, z_privoder)?,
@@ -165,7 +183,7 @@ pub fn evaluate_command(cmd: CommandElement, stack: &mut Stack, index: usize, z_
     Ok(result)
 }
 
-fn evaluate_opcode(op: Opcode, stack: &mut Stack, index: usize, z_privoder: &Box<dyn ZProvider>) -> Result<bool, Error> {
+fn evaluate_opcode(op: Opcode, stack: &mut Stack, index: usize, z_privoder: &mut Box<dyn ZProvider>) -> Result<bool, Error> {
     let mut result = true;
     match op {
         Opcode::Op0 => {
@@ -191,6 +209,12 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, index: usize, z_privoder: &Box
             let num = op.value() - 0x50;
             let num = Num::from(num as i64).encode();
             stack.push(num);
+        },
+        Opcode::OpVerify => {
+            let ele = stack.pop()?;
+            if Num::decode(ele)?.value() == 0 {
+                return Ok(false);
+            }
         },
         Opcode::OpDup => {
             let ele = stack.pop()?;
@@ -223,6 +247,24 @@ fn evaluate_opcode(op: Opcode, stack: &mut Stack, index: usize, z_privoder: &Box
 
             let stack_result = if result { vec![1] } else { vec![] };
             stack.push(stack_result);
+        },
+        Opcode::OpCodeseparator => {
+            // nothing now
+            // TODO make signature correct
+        },
+        Opcode::OpChecksigverify => {
+            // op_checksig (TODO use function)
+            let pk = stack.pop()?;
+            let sig = stack.pop()?;
+            result = check_signature(pk, sig, index, z_privoder)?;
+
+            let stack_result = if result { vec![1] } else { vec![] };
+            stack.push(stack_result);
+            // op_verify (TODO use function)
+            let ele = stack.pop()?;
+            if Num::decode(ele)?.value() == 0 {
+                return Ok(false);
+            }
         },
         Opcode::OpCheckmultisig => {
             let (n, _) = varint::decode(&stack.pop()?)?;
@@ -308,5 +350,15 @@ mod tests {
         let prevout = TxOut::new(1000000000u64, hex::decode("a9144733f37cf4db86fbc2efed2500b4f4e49f31202387").unwrap());
 
         assert_eq!(super::verify_tx_input(&tx, 0, Some(prevout)).unwrap(), false);
+    }
+
+    #[test]
+    fn operator_verify_transaction_input_p2wsh_true() {
+        let bytes = hex::decode("01000000000102fe3dc9208094f3ffd12645477b3dc56f60ec4fa8e6f5d67c565d1c6b9216b36e000000004847304402200af4e47c9b9629dbecc21f73af989bdaa911f7e6f6c2e9394588a3aa68f81e9902204f3fcf6ade7e5abb1295b6774c8e0abd94ae62217367096bc02ee5e435b67da201ffffffff0815cf020f013ed6cf91d29f4202e8a58726b1ac6c79da47c23d1bee0a6925f80000000000ffffffff0100f2052a010000001976a914a30741f8145e5acadf23f751864167f32e0963f788ac000347304402200de66acf4527789bfda55fc5459e214fa6083f936b430a762c629656216805ac0220396f550692cd347171cbc1ef1f51e15282e837bb2b30860dc77c8f78bc8501e503473044022027dc95ad6b740fe5129e7e62a75dd00f291a2aeb1200b84b09d9e3789406b6c002201a9ecd315dd6a0e632ab20bbb98948bc0c6fb204f2c286963bb48517a7058e27034721026dccc749adc2a9d0d89497ac511f760f45c47dc5ed9cf352a58ac706453880aeadab210255a9626aebf5e29c0e6538428ba0d1dcf6ca98ffdf086aa8ced5e0d0215ea465ac00000000").unwrap();
+        let tx = Transaction::parse(&bytes).unwrap();
+
+        let prevout = TxOut::new(4900000000u64, hex::decode("00205d1b56b63d714eebe542309525f484b7e9d6f686b3781b6f61ef925d66d6f6a0").unwrap());
+
+        assert_eq!(super::verify_tx_input(&tx, 1, Some(prevout)).unwrap(), true);
     }
 }

@@ -1,6 +1,6 @@
 use super::Error;
+use std::fmt;
 
-#[derive(Debug)]
 pub struct Stack(Vec<Vec<u8>>);
 
 impl Stack {
@@ -14,5 +14,20 @@ impl Stack {
 
     pub fn pop(&mut self) -> Result<Vec<u8>, Error> {
         self.0.pop().ok_or(Error::EmptyStack)
+    }
+}
+
+impl fmt::Debug for Stack {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut r = String::new();
+        r.push('[');
+        for bytes in &self.0 {
+            r += &format!("{}, ", hex::encode(bytes));
+        }
+        r.push(']');
+
+        f.debug_struct("Stack")
+            .field("content", &r)
+            .finish()
     }
 }

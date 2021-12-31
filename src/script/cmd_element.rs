@@ -3,7 +3,7 @@ use super::{Opcode, Error};
 use std::fmt;
 use std::convert::{TryFrom, From};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum CommandElement {
     Op(Opcode),
     Data(Vec<u8>), // length <= 520

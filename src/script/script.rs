@@ -88,7 +88,7 @@ impl Script {
     }
 
     // @param index: index of input in inputs
-    pub fn evaluate(&self, index: usize, z_provider: &Box<dyn ZProvider>) -> Result<bool, Error> {
+    pub fn evaluate(&self, index: usize, z_provider: &mut Box<dyn ZProvider>) -> Result<bool, Error> {
         let mut cmds = self.cmds.clone();
         let mut stack = Stack::new();
         while let Some(cmd) = cmds.pop() {
@@ -194,6 +194,17 @@ impl Script {
             _ => false,
         }
     }
+
+    pub fn is_p2wsh_pubkey(&self) -> bool {
+        let cmds = self.cmds();
+        if cmds.len() != 2 {
+            return false;
+        }
+        match (&cmds[0], &cmds[1]) {
+            (CommandElement::Data(data), CommandElement::Op(ops0)) => *ops0 == Opcode::Op0 && data.len() == 32,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -215,8 +226,8 @@ mod tests {
         let combined_script = script_pubkey + script_sig;
 
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
-        let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(0, &z).unwrap();
+        let mut z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
+        let result = combined_script.evaluate(0, &mut z).unwrap();
         assert!(result);
     }
 
@@ -231,8 +242,8 @@ mod tests {
 
         let combined_script = script_pubkey + script_sig;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3e").unwrap());
-        let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(0, &z).unwrap();
+        let mut z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
+        let result = combined_script.evaluate(0, &mut z).unwrap();
         assert!(!result);
     }
 
@@ -246,8 +257,8 @@ mod tests {
 
         let combined_script = script_pubkey + script_sig;
         let z = U256::from_big_endian(&hex::decode("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d").unwrap());
-        let z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(0, &z).unwrap();
+        let mut z = Box::new(ZProviderMocker(z)) as Box<dyn ZProvider>;
+        let result = combined_script.evaluate(0, &mut z).unwrap();
         assert!(result);
     }
 
@@ -260,8 +271,8 @@ mod tests {
         let script_sig = Script::parse_raw(&script_sig).unwrap();
 
         let combined_script = script_pubkey + script_sig;
-        let z = Box::new(ZProviderMocker(U256::zero())) as Box<dyn ZProvider>;
-        let result = combined_script.evaluate(0, &z).unwrap();
+        let mut z = Box::new(ZProviderMocker(U256::zero())) as Box<dyn ZProvider>;
+        let result = combined_script.evaluate(0, &mut z).unwrap();
         assert!(result);
     }
 
@@ -289,10 +300,10 @@ mod tests {
         let op_0 = CommandElement::Op(Opcode::Op0); // for satoshi bug
         let script_sig = Script::new(vec![sig, op_0]);
 
-        let (script_pubkey, z) = script_pubkey_for_check_multisig_and_z();
+        let (script_pubkey, mut z) = script_pubkey_for_check_multisig_and_z();
         let combined_script = script_pubkey + script_sig;
 
-        let result = combined_script.evaluate(0, &z).unwrap();
+        let result = combined_script.evaluate(0, &mut z).unwrap();
         assert!(result);
     }
 
@@ -302,10 +313,10 @@ mod tests {
         let op_0 = CommandElement::Op(Opcode::Op0); // for satoshi bug
         let script_sig = Script::new(vec![sig, op_0]);
 
-        let (script_pubkey, z) = script_pubkey_for_check_multisig_and_z();
+        let (script_pubkey, mut z) = script_pubkey_for_check_multisig_and_z();
         let combined_script = script_pubkey + script_sig;
 
-        let result = combined_script.evaluate(0, &z).unwrap();
+        let result = combined_script.evaluate(0, &mut z).unwrap();
         assert!(!result);
     }
 
@@ -367,8 +378,8 @@ mod tests {
         );
 
         let combined_script = script_pubkey + script_sig;
-        let z = Box::new(z) as Box<dyn ZProvider>;
-        assert!(combined_script.evaluate(0, &z).unwrap());
+        let mut z = Box::new(z) as Box<dyn ZProvider>;
+        assert!(combined_script.evaluate(0, &mut z).unwrap());
     }
 
     #[test]
@@ -415,8 +426,8 @@ mod tests {
         );
 
         let combined_script = script_pubkey + script_sig;
-        let z = Box::new(z) as Box<dyn ZProvider>;
-        assert!(!combined_script.evaluate(0, &z).unwrap());
+        let mut z = Box::new(z) as Box<dyn ZProvider>;
+        assert!(!combined_script.evaluate(0, &mut z).unwrap());
     }
 
     #[test]
@@ -448,7 +459,7 @@ mod tests {
             c99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600").unwrap();
         let tx = Transaction::parse(&bytes).unwrap();
 
-        let provider = TransactionLegacyZProvider::from(tx);
+        let mut provider = TransactionLegacyZProvider::from(tx);
         let z = provider.z(0, SigHash::All, None, None).unwrap();
         assert_eq!("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", hex::encode(z));
     }

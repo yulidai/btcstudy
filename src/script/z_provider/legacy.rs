@@ -13,7 +13,7 @@ impl From<Transaction> for TransactionLegacyZProvider {
 }
 
 impl ZProvider for TransactionLegacyZProvider {
-    fn z(&self, _input: usize, sighash: SigHash, _redeem_script: Option<Script>, _witness_script: Option<Script>) -> Result<Hash256Value, Error> {
+    fn z(&mut self, _input: usize, sighash: SigHash, _redeem_script: Option<Script>, _witness_script: Option<Script>) -> Result<Hash256Value, Error> {
         match sighash {
             SigHash::All => {
                 let mut tx = self.0.clone();
